@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="Tone.js"></script> 
+
+    
+</head>
+<body>
+<button>AudioContext</button>
+
+<button onclick="play();">Play</button>
+
+<button onclick="play_seq([60,61,62,63,64]);">Play Seq</button>
+
+
+
+<script>
+    
+    //attach a click listener to a play button
+document.querySelector('button').addEventListener('click', async () => {
+	await Tone.start()
+	console.log('audio is ready')
+})
+    //create a synth and connect it to the master output (your speakers)
+const synth = new Tone.Synth().toMaster();
+
+function play () {
+//play a middle 'C' for the duration of an 8th note
+synth.triggerAttackRelease("C4", "8n");
+}
+
+//https://github.com/Tonejs/Tone.js/wiki/Arpeggiator
+
+function play_seq (note_list) {
+
+console.log(note_list);
+
+note_list.forEach(element => console.log(element));
+
+//midi_list = note_list.map(x => Tone.Frequency(x, "midi"));
+
+midi_list = note_list.map(x => Tone.Frequency(x, "midi").toNote());
+last_note = midi_list[midi_list.length - 1];
+
+var pattern = new Tone.Sequence(function(time, note){
+    synth.triggerAttackRelease(note, 0.25);
+    console.log(note);
+    if (note === last_note) {
+        console.log("finished!");
+    }
+}, midi_list);
+
+pattern.start(0).loop = false;
+//begin at the beginning
+Tone.Transport.start();
+}
+
+    </script>
+
+</body>
+</html>
