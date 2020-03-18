@@ -1,3 +1,5 @@
 # mel_production
 
-Melodic production test
+The Melodic Production Task
+
+A psychology test for singing back tones and melodies.
