@@ -1,6 +1,3 @@
-
-setwd("/Users/sebsilas/mel_production")
-
 # imports
 
 library(psychTestR)
