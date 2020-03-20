@@ -1,4 +1,5 @@
 
+setwd("/Users/sebsilas/mel_production")
 
 # imports
 
@@ -27,15 +28,14 @@ stimuli <- readRDS("Berkowitz_midi_relative.RDS")
 
 # list of page types that don't return audio
 
-non.audio.pages <- list("get_user_info", "microphone_test", "present_files")
+non.audio.pages <- list("get_user_info", "microphone_test", "present_files", "quiet_question", "headphones_question")
 
 
 
 # html header
 
-# handle CORS request
-
-enable.cors <- '
+html.head <- shiny::tags$head(shiny::tags$script(
+htmltools::HTML('
 // Create the XHR object.
 function createCORSRequest(method, url) {
 var xhr = new XMLHttpRequest();
@@ -59,7 +59,7 @@ return text.match(\'<title>(.*)?</title>\')[1];
 // Make the actual CORS request.
 function makeCorsRequest() {
 // This is a sample server that supports CORS.
-var url = \'https://www.eartrainer.app/melodic-production/js/midi.js\';
+var url = \'https://www.midijs.net/lib/midi.js\';
 var xhr = createCORSRequest(\'GET\', url);
 if (!xhr) {
 alert(\'CORS not supported\');
@@ -76,39 +76,17 @@ alert(\'Woops, there was an error making the request.\');
 };
 xhr.send();
 }
-'
+')),
 
-html.head <- shiny::tags$head(
-  shiny::tags$script(htmltools::HTML(enable.cors)),
-  shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-  includeScript("www/Tone.js"),
-  includeScript("www/main.js"),
-  includeScript("www/speech.js"),
-  includeScript("www/audiodisplay.js"),
-  shiny::tags$script(htmltools::HTML("initAudio();"))
-)
-
-
-# record interface
-
-record_ui <- div(
-  img(id = "record",
-      src = "https://eartrainer.app/record/mic128.png",
-      onclick = "console.log(\"Pushed Record\");audioContext.resume();console.log(this);toggleRecording(this);",
-      style = "display:block; margin:1px auto;"),
-  
-  trigger_button("next", "Next"),
-  
-  helpText("Click on the microphone to record."),
-  hr(),
-  div(id = "viz",
-      tags$canvas(id = "analyser"),
-      tags$canvas(id = "wavedisplay")
-  ),
-  br(),
-  hr()
-)
-
+shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
+#includeScript("www/js/midi.js"),
+shiny::tags$script(src="https://www.midijs.net/lib/midi.js"),
+includeScript("www/js/Tone.js"),
+includeScript("www/js/main.js"),
+includeScript("www/js/speech.js"),
+includeScript("www/js/audiodisplay.js"),
+shiny::tags$script(htmltools::HTML('initAudio();// get audio context going')
+))
 
 
 
@@ -145,6 +123,7 @@ generate.melody.in.user.range <- function(user_range, rel_melody) {
   return(user.optimised.melody)
   
 }
+
 
 compute.SNR <- function(signal, noise) {
   SNR <- 20*log10(abs(rms(env(signal))-rms(env(noise)))/rms(env(noise))) 
@@ -212,14 +191,7 @@ SNR.page <- reactive_page(function(state, ...) {
   
   ui <- div(
     
-    shiny::tags$head(
-      shiny::tags$script(htmltools::HTML(enable.cors)),
-      shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-      includeScript("www/main.js"),
-      includeScript("www/speech.js"),
-      includeScript("www/audiodisplay.js")
-      
-    ), # end head
+    html.head,
     
     # start body
     
@@ -243,6 +215,7 @@ SNR.page <- reactive_page(function(state, ...) {
   psychTestR::page(ui = ui)
   
 })
+
 
 calculate.range <- function(answer, ...) {
   
@@ -285,14 +258,7 @@ calculate.range <- function(answer, ...) {
   
   ui <- div(
     
-    shiny::tags$head(
-      shiny::tags$script(htmltools::HTML(enable.cors)),
-      shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-      includeScript("www/main.js"),
-      includeScript("www/speech.js"),
-      includeScript("www/audiodisplay.js")
-      
-    ), # end head
+    html.head,
     
     # start body
     
@@ -419,17 +385,9 @@ record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= N
   
   ui <- div(
     
-    shiny::tags$script(htmltools::HTML(enable.cors)),
-    shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-    includeScript("www/Tone.js"),
-    includeScript("www/main.js"),
-    includeScript("www/speech.js"),
-    includeScript("www/audiodisplay.js"),
+   html.head
     
-    shiny::tags$script(htmltools::HTML('
-                                       // get audio context going
-                                       initAudio();
-                                       '))
+
     
     
     
@@ -441,7 +399,7 @@ record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= N
     
     
     shiny::tags$div(id="button_area",
-                    shiny::tags$button("I'm Ready to record my background", id="playButton", onclick="AutoFiveSecondRecord();")
+                    shiny::tags$button("I'm Ready to record my background", id="playButton", onclick="recordAndStop(5000, false);")
                     
     ),
     
@@ -460,29 +418,15 @@ record_5_second_hum_page <- function(admin_ui = NULL, on_complete = NULL, label=
   
   
   ui <- div(
-    
-    shiny::tags$script(htmltools::HTML(enable.cors)),
-    shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-    includeScript("www/Tone.js"),
-    includeScript("www/main.js"),
-    includeScript("www/speech.js"),
-    includeScript("www/audiodisplay.js"),
-    
-    shiny::tags$script(htmltools::HTML('
-                                       // get audio context going
-                                       initAudio();
-                                       '))
-    
-    
-    
-    , # end head
+
+    html.head,
     
     # start body
     
     shiny::tags$p("Now we need to record you humming any comfortable note for 5-seconds. Feel free to practice first. When you are ready, take a deep breath, start humming and then click the Ready button just after. Try to keep one long hum without stopping at all. You can stop humming when the red bird disappears."),
     
     shiny::tags$div(id="button_area",
-                    shiny::tags$button("I'm Ready to hum (and will start just before I click this)", id="playButton", onclick="AutoFiveSecondRecord();")
+                    shiny::tags$button("I'm Ready to hum (and will start just before I click this)", id="playButton", onclick="recordAndStop(5000);")
     ),
     
     shiny::tags$div(id="loading_area")
@@ -503,22 +447,10 @@ singing_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label=
   # ask the user to sing a well-known song
   
   ui <- div(
+   
     
-    shiny::tags$script(htmltools::HTML(enable.cors)),
-    shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-    includeScript("www/Tone.js"),
-    includeScript("www/main.js"),
-    includeScript("www/speech.js"),
-    includeScript("www/audiodisplay.js"),
+    html.head,
     
-    shiny::tags$script(htmltools::HTML('
-                                       // get audio context going
-                                       initAudio();
-                                       '))
-    
-    
-    
-    , # end head
     
     # start body
     
@@ -527,14 +459,13 @@ singing_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label=
     shiny::tags$p("Happy birthday to you. Happy birthday to you. Happy birthday to Alex. Happy birthday to you."),
     
     
-    shiny::tags$p("Press stop when you are finished."),
+    shiny::tags$p("Press Stop when you are finished."),
     
     
     
     shiny::tags$div(id="button_area",
-                    shiny::tags$button("Sing Happy Birthday", id="playButton", onclick="recordNoPlayback();")
+                    shiny::tags$button("Sing Happy Birthday", id="playButton", onclick="recordAndStop(ms = null,showStop=true);")
     ),
-    
     shiny::tags$div(id="loading_area")
     
     
@@ -549,7 +480,7 @@ singing_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label=
 
 play_long_tone_record_audio_page <- function(user_range_index, admin_ui = NULL, on_complete = NULL, label= NULL) {
   
-  # a page type for playing a 4-second tone and recording a user singing with it
+  # a page type for playing a 5-second tone and recording a user singing with it
   
   # args
   # user_range_index: which index of the user's stored range should be used for the long tone
@@ -568,27 +499,13 @@ play_long_tone_record_audio_page <- function(user_range_index, admin_ui = NULL, 
   
   ui <- div(
     
-    shiny::tags$script(htmltools::HTML(enable.cors)),
-    shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-    includeScript("www/Tone.js"),
-    includeScript("www/main.js"),
-    includeScript("www/speech.js"),
-    includeScript("www/audiodisplay.js"),
-    
-    shiny::tags$script(htmltools::HTML('
-                                       // get audio context going
-                                       initAudio();
-                                       '))
-    
-    
-    
-    , # end head
+    html.head,
     
     # start body
     
-    shiny::tags$p("When you click the button below, you will hear a 4-second tone. You must try your best to sing along with this tone immediately. The idea is to sing the exact same tone."),
+    shiny::tags$p("When you click the button below, you will hear a 5-second tone. You must try your best to sing along with this tone immediately. The idea is to sing the exact same tone."),
     shiny::tags$div(id="button_area",
-                    shiny::tags$button("Play Tone and Sing Along", id="playButton", onclick=sprintf("playTone(%s)", tone.for.js))
+                    shiny::tags$button("Play Tone and Sing Along", id="playButton", onclick=sprintf("playTone(%s, 5)", tone.for.js))
     ),
     
     shiny::tags$div(id="loading_area")
@@ -620,21 +537,7 @@ play_mel_record_audio_page <- function(stimuli_no, note_no, admin_ui = NULL, on_
   
   ui <- div(
     
-    shiny::tags$script(htmltools::HTML(enable.cors)),
-    shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-    includeScript("www/Tone.js"),
-    includeScript("www/main.js"),
-    includeScript("www/speech.js"),
-    includeScript("www/audiodisplay.js"),
-    
-    shiny::tags$script(htmltools::HTML('
-                                       // get audio context going
-                                       initAudio();
-                                       '))
-    
-    
-    
-    , # end head
+    html.head,
     
     # start body
     
@@ -670,21 +573,7 @@ play_interval_record_audio_page <- function(interval, admin_ui = NULL, on_comple
   
   ui <- div(
     
-    shiny::tags$script(htmltools::HTML(enable.cors)),
-    shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-    includeScript("www/Tone.js"),
-    includeScript("www/main.js"),
-    includeScript("www/speech.js"),
-    includeScript("www/audiodisplay.js"),
-    
-    shiny::tags$script(htmltools::HTML('
-                                       // get audio context going
-                                       initAudio();
-                                       '))
-    
-    
-    
-    , # end head
+    html.head,
     
     # start body
     
@@ -703,19 +592,44 @@ play_interval_record_audio_page <- function(interval, admin_ui = NULL, on_comple
 
 
 
-microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL) {
+# create a page type for playing back midi files
+
+midi_page <- function(stimuli_no,
+                      admin_ui = NULL,
+                      on_complete = NULL, label=NULL) {
   
+  url <- paste0("/berkowitz_midi_rhythmic/Berkowitz",stimuli_no,".mid")
   
   ui <- div(
     
-    shiny::tags$head(
-      shiny::tags$script(htmltools::HTML(enable.cors)),
-      shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
-      includeScript("www/Tone.js"),
-      includeScript("www/main.js"),
-      includeScript("www/speech.js"),
-      includeScript("www/audiodisplay.js")
+    html.head,
+    
+    # start body
+    shiny::tags$p("Press Play to hear a melody. This time try and sing back the melody and the rhythm as best you can. Just do your best on the first go then press stop!"),
+    
+    shiny::tags$div(id="button_area",
+    shiny::tags$button("Play Melody", id="playButton", onclick=paste0("playMidiFileAndRecordAfter(\"",url,"\")")),
     ),
+  
+  shiny::tags$div(id="loading_area")
+  
+  )
+  
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete)
+}
+
+
+
+microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL) {
+  
+  # NB, this page needs its own unique head because we don't want to initAudio()
+  
+  ui <- div(
+      shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
+      includeScript("www/js/Tone.js"),
+      includeScript("www/js/main.js"),
+      includeScript("www/js/speech.js"),
+      includeScript("www/js/audiodisplay.js"),
     
     # start body
     
@@ -725,7 +639,7 @@ microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, lab
     
     
     img(id = "record",
-        src = "https://eartrainer.app/record/mic128.png",
+        src = "/img/mic128.png",
         onclick = "console.log(\"Pushed Record\");console.log(this);initAudio();toggleRecording(this);",
         style = "display:block; margin:1px auto;"),
     
@@ -845,36 +759,63 @@ present_files_page <- function(state, admin_ui = NULL, on_complete = NULL, label
 # create the timeline
 timeline <- list(
   
+  one_button_page(
+    div(
+      p("Welcome to the", tags$strong("Melody Singing Test!")),
+      p("Please click below to proceed.")
+    ),
+    button_text = "I'm Ready"
+  ),
   
+  
+  NAFC_page(label = "quiet_question",
+            prompt = "Are you in a quiet environment?",
+            choices = c("Yes", "No"),
+            on_complete = function(answer, ...) {
+              res <- suppressWarnings(answer)
+              if (!is.na(res) && res == "Yes") TRUE
+              else display_error("Sorry, you cannot complete the test unless you are in a quiet environment.")
+            }),
+
+  NAFC_page(label = "headphones_question",
+            prompt = "To complete this test you must wear headphones. You are not allowed to playback sound through your speakers. Please confirm that you will use headphones.",
+            choices = c("Yes, I am using headphones.", "I cannot use headphones."),
+            on_complete = function(answer, ...) {
+              res <- suppressWarnings(answer)
+              if (!is.na(res) && res == "Yes, I am using headphones.") TRUE
+              else display_error("Sorry, you cannot complete the test unless you are using headphones.")
+            }),
+
+
   #volume_calibration_page(url = "test_headphones.mp3", type='mp3', button_text = "I can hear the song, move on."),
-  
+
   get_user_info_page(label="get_user_info"),
-  
-  
+
+
   elt_save_results_to_disk(complete = FALSE),
-  
+
   code_block(function(state, ...) {
     # seems like this may need to be after some form of results to disk saving
     session_dir <- get_session_info(state, complete = FALSE)$p_id
-    
+
     print(session_dir)
-    
+
   }),
-  
+
   microphone_calibration_page(label = "microphone_test"),
-  
+
   record_background_page(label="user_background"),
-  
+
   process.audio,
-  
+
   elt_save_results_to_disk(complete = FALSE),
-  
+
   record_5_second_hum_page(label = "user_hum"),
-  
+
   process.audio,
-  
+
   SNR.page,
-  
+
   elt_save_results_to_disk(complete = FALSE),
   
   singing_calibration_page(label = "user_singing_calibration"),
@@ -907,9 +848,26 @@ timeline <- list(
   
   elt_save_results_to_disk(complete = FALSE),
   
+  midi_page(stimuli_no = 2, label="rhythm_mel_1"),
+  
+  process.audio,
+  
+  elt_save_results_to_disk(complete = FALSE),
+  
   reactive_page(function(state, ...) {
     present_files_page(state = state, label = "present_files")
   }),
+  
+  
+  # pilot Q's
+  text_input_page("pilot_1", "Were all the instructions easy to understand? If not, please described what confused you.", save_answer = TRUE,
+                 button_text = "Next", width = "300px",
+                  height = "100px"),
+  
+  text_input_page("pilot_2", "Please describe any issues you experienced with the test?", save_answer = TRUE,
+                  button_text = "Next", width = "300px",
+                  height = "100px"),
+  
   
   elt_save_results_to_disk(complete = TRUE), # after last page
   
