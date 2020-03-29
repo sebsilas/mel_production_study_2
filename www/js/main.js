@@ -334,6 +334,8 @@ function recordUpdateUI(showStop) {
 function recordAndStop (ms, showStop) {
     // start recording but then stop after x milliseconds
      
+    console.log("stop!");
+
     startRecording();
 
      if (ms === null) {
@@ -392,32 +394,49 @@ function recordAndStop (ms, showStop) {
 }
    
 
-function toneJSPlay (midi) {
+function toneJSPlay (midi, note_no) {
 
     const now = Tone.now() + 0.1;
     const synths = [];
     midi.tracks.forEach(track => {
-        console.log(track['duration']);
-        setTimeout(() => {  recordAndStop(null, true); }, track['duration'] * 1000); // start recording after
+        
+        if (note_no === "max") {
+            notes_list = track.notes; console.log(track.notes); // need to test full notes
+            dur = track['duration'] * 1000; 
+         
+        } else {
+                dur = 0;
+               notes_list = track['notes'].slice(1, note_no+1);
+               notes_list.forEach(el => { 
+                   console.log(el['duration']); 
+                   dur = dur+el['duration'] * 1000;
+                   console.log(dur);
+                })
+        }
+
+        console.log(dur);
+
+        setTimeout(() => {  recordAndStop(null, true); }, dur); 
+
         //create a synth for each track
         const synth = new Tone.PolySynth(2, Tone.Synth, synth_params).toMaster();
         synths.push(synth);
         //schedule all of the events
-        track.notes.forEach(note => {
+        notes_list.forEach(note => {
         synth.triggerAttackRelease(note.name, note.duration, note.time + now, note.velocity);
         });
-    })
+    });
 
-    }
+}
     
-async function midiToToneJS (url) {
+async function midiToToneJS (url, note_no) {
 
 // load a midi file in the browser
 const midi = await Midi.fromUrl(url).then(midi => {
 
     console.log(midi);
 
-    toneJSPlay(midi);
+    toneJSPlay(midi, note_no);
     
 })
 }
@@ -425,13 +444,14 @@ const midi = await Midi.fromUrl(url).then(midi => {
 
 // Define a function to handle status messages
 
-function playMidiFileAndRecordAfter(url, toneJS) {
-
+function playMidiFileAndRecordAfter(url, toneJS, note_no) {
   
     // toneJS: boolean. true if file file to be played via toneJS. otherwise, via MIDIJS
+    // note_no, optional no of notes to cap at 
+
 
     if (toneJS === true) {
-        midiToToneJS(url);
+        midiToToneJS(url, note_no);
     }
 
     else {

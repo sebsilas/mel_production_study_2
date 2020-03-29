@@ -658,9 +658,15 @@ play_interval_record_audio_page <- function(interval, admin_ui = NULL, on_comple
 
 # create a page type for playing back midi files
 
-midi_page <- function(stimuli_no,
-                      admin_ui = NULL,
+midi_page <- function(stimuli_no, note_no = NULL, admin_ui = NULL,
                       on_complete = NULL, label=NULL) {
+  
+  
+  # note_no. optionally limit number of notes
+  
+  if (is.null(note_no) == TRUE) {
+    note_no <- "\"max\""
+  }
   
   #dir_of_midi <- "/berkowitz_midi_rhythmic/Berkowitz"
   
@@ -676,7 +682,7 @@ midi_page <- function(stimuli_no,
     shiny::tags$p("Press Play to hear a melody. This time try and sing back the melody and the rhythm as best you can. Just do your best on the first go then press stop!"),
     
     shiny::tags$div(id="button_area",
-    shiny::tags$button("Play Melody", id="playButton", onclick=paste0("playMidiFileAndRecordAfter(\"",url,"\",true)")),
+    shiny::tags$button("Play Melody", id="playButton", onclick=paste0("playMidiFileAndRecordAfter(\"",url,"\",true, ",note_no,")")),
     ),
   
   shiny::tags$div(id="loading_area")
@@ -852,75 +858,75 @@ timeline <- list(
    ),
    
    
-  NAFC_page(label = "quiet_question",
-             prompt = "Are you in a quiet environment?",
-             choices = c("Yes", "No"),
-             on_complete = function(answer, ...) {
-               res <- suppressWarnings(answer)
-               if (!is.na(res) && res == "Yes") TRUE
-               else display_error("Sorry, you cannot complete the test unless you are in a quiet environment.")
-             }),
-   
-  NAFC_page(label = "headphones_question",
-             prompt = "To complete this test you must wear headphones. You are not allowed to playback sound through your speakers. Please confirm that you will use headphones.",
-             choices = c("Yes, I am using headphones.", "I cannot use headphones."),
-             on_complete = function(answer, ...) {
-               res <- suppressWarnings(answer)
-               if (!is.na(res) && res == "Yes, I am using headphones.") TRUE
-               else display_error("Sorry, you cannot complete the test unless you are using headphones.")
-             }),
-   
-   
-  volume_calibration_page(url = "audio/test_headphones.mp3", type='mp3', button_text = "I can hear the song, move on."),
-   
-  get_user_info_page(label="get_user_info"),
-   
-   
-  elt_save_results_to_disk(complete = FALSE),
-   
-   code_block(function(state, ...) {
-     # seems like this may need to be after some form of results to disk saving
-     session_dir <- get_session_info(state, complete = FALSE)$p_id
-   
-     print(session_dir)
-   
-   }),
- 
-  microphone_calibration_page(label = "microphone_test"),
-   
-  record_background_page(label="user_background"),
-   
-  elt_save_results_to_disk(complete = FALSE),
+  # NAFC_page(label = "quiet_question",
+  #            prompt = "Are you in a quiet environment?",
+  #            choices = c("Yes", "No"),
+  #            on_complete = function(answer, ...) {
+  #              res <- suppressWarnings(answer)
+  #              if (!is.na(res) && res == "Yes") TRUE
+  #              else display_error("Sorry, you cannot complete the test unless you are in a quiet environment.")
+  #            }),
+  #  
+  # NAFC_page(label = "headphones_question",
+  #            prompt = "To complete this test you must wear headphones. You are not allowed to playback sound through your speakers. Please confirm that you will use headphones.",
+  #            choices = c("Yes, I am using headphones.", "I cannot use headphones."),
+  #            on_complete = function(answer, ...) {
+  #              res <- suppressWarnings(answer)
+  #              if (!is.na(res) && res == "Yes, I am using headphones.") TRUE
+  #              else display_error("Sorry, you cannot complete the test unless you are using headphones.")
+  #            }),
+  #  
+  #  
+  # volume_calibration_page(url = "audio/test_headphones.mp3", type='mp3', button_text = "I can hear the song, move on."),
+  #  
+  # get_user_info_page(label="get_user_info"),
+  #  
+  #  
+  # elt_save_results_to_disk(complete = FALSE),
+  #  
+  #  code_block(function(state, ...) {
+  #    # seems like this may need to be after some form of results to disk saving
+  #    session_dir <- get_session_info(state, complete = FALSE)$p_id
+  #  
+  #    print(session_dir)
+  #  
+  #  }),
+  # 
+  # microphone_calibration_page(label = "microphone_test"),
+  #  
+  # record_background_page(label="user_background"),
+  #  
+  # elt_save_results_to_disk(complete = FALSE),
+  # 
+  # record_5_second_hum_page(label = "user_hum"),
+  # 
+  # calculate.SNR.page,
+  # 
+  # elt_save_results_to_disk(complete = FALSE),
+  #  
+  # singing_calibration_page(label = "user_singing_calibration"),
+  #  
+  # elt_save_results_to_disk(complete = FALSE),
+  #  
+  #  
+  #  reactive_page(function(state, ...) {
+  #    calculate.range(state = state)
+  #  }),
+  # 
+  # play_long_tone_record_audio_page(label="tone_1", user_range_index=1),
+  # 
+  # elt_save_results_to_disk(complete = FALSE),
+  # 
+  # play_interval_record_audio_page(label="interval_1", interval=simple_intervals[1]),
+  # 
+  # elt_save_results_to_disk(complete = FALSE),
+  # 
+  # 
+  # play_mel_record_audio_page(stimuli_no = 1, note_no = 4, label="melody_1"),
+  # 
+  # elt_save_results_to_disk(complete = FALSE),
   
-  record_5_second_hum_page(label = "user_hum"),
-  
-  calculate.SNR.page,
-  
-  elt_save_results_to_disk(complete = FALSE),
-   
-  singing_calibration_page(label = "user_singing_calibration"),
-   
-  elt_save_results_to_disk(complete = FALSE),
-   
-   
-   reactive_page(function(state, ...) {
-     calculate.range(state = state)
-   }),
-  
-  play_long_tone_record_audio_page(label="tone_1", user_range_index=1),
-
-  elt_save_results_to_disk(complete = FALSE),
-  
-  play_interval_record_audio_page(label="interval_1", interval=simple_intervals[1]),
-  
-  elt_save_results_to_disk(complete = FALSE),
-  
-  
-  play_mel_record_audio_page(stimuli_no = 1, note_no = 4, label="melody_1"),
-  
-  elt_save_results_to_disk(complete = FALSE),
-  
-  midi_page(stimuli_no = 2, label="rhythm_mel_1"),
+  midi_page(stimuli_no = 2, label="rhythm_mel_1", note_no = 5),
   
   elt_save_results_to_disk(complete = FALSE),
   
