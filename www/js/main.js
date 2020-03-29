@@ -1,19 +1,21 @@
 console.log("loaded main.js");
 
-//create a synth and connect it to the master output (your speakers)
-const synth = new Tone.Synth({
-  oscillator: {
-    type: 'sine',
-    partialCount: 4
-  },
-  envelope: { // http://shura.shu.ac.uk/8259/1/96913_Soranzo_psychoacoustics.pdf
-    attack: 0.01,
-    decay: 0.01,
-    sustain: 0.25,
-    release: 0.01,
-    attackCurve: 'cosine'
+const synth_params = {
+    oscillator: {
+      type: 'sine',
+      partialCount: 4
+    },
+    envelope: { // http://shura.shu.ac.uk/8259/1/96913_Soranzo_psychoacoustics.pdf
+      attack: 0.01,
+      decay: 0.01,
+      sustain: 0.25,
+      release: 0.01,
+      attackCurve: 'cosine'
+    }
   }
-}).toMaster();
+
+//create a synth and connect it to the master output (your speakers)
+const synth = new Tone.Synth(synth_params).toMaster();
 
 
 //
@@ -53,7 +55,7 @@ function gotBuffers(buffers, initiateNext) {
     Shiny.onInputChange("audio", buffers);
     //Shiny.onInputChange("next_page", performance.now());
     next_page();
-    hideRecordImage(); showLoadingIcon();
+    hideRecordImage();
     console.log("reached end of gotBuffers");
 
 
@@ -229,7 +231,19 @@ function initAudio() {
 
 }
 
+function testFeatureCapability() {
+
+    if (Modernizr.audio & Modernizr.audiopreload & Modernizr.webaudio) {
+        console.log("This browser has the necessary features");
+        Shiny.setInputValue("browser_capable", "TRUE");
+        } else {
+        console.log("This browser does not have the necessary features");
+        Shiny.setInputValue("browser_capable", "FALSE");
+        }
+}
+
 function getUserInfo () {
+    testFeatureCapability();
     console.log(navigator);
     var _navigator = {};
     for (var i in navigator) _navigator[i] = navigator[i];
@@ -237,6 +251,7 @@ function getUserInfo () {
     delete _navigator.mimeTypes;
     navigatorJSON = JSON.stringify(_navigator);
     console.log(navigatorJSON);
+    console.log("Browser:" + navigator.userAgent);
     Shiny.setInputValue("user_info", navigatorJSON);
 }
 
@@ -321,7 +336,7 @@ function recordAndStop (ms, showStop) {
      
     startRecording();
 
-     if (ms == null) {
+     if (ms === null) {
         recordUpdateUI(showStop);
      }
 
@@ -334,81 +349,131 @@ function recordAndStop (ms, showStop) {
   
 
 
-   function  playTone(tone, seconds) {
-    // play a tone for x seconds
+ function  playTone(tone, seconds) {
+  // play a tone for x seconds
 
-    tone = Number(tone);
-    console.log(tone);
+  tone = Number(tone);
+  console.log(tone);
 
-    freq_tone = Tone.Frequency(tone, "midi").toNote();
-    console.log(freq_tone);
+  freq_tone = Tone.Frequency(tone, "midi").toNote();
+  console.log(freq_tone);
 
-    synth.triggerAttackRelease(freq_tone, seconds);
+  synth.triggerAttackRelease(freq_tone, seconds);
 
-    recordAndStop(seconds*1000+500, false);
+  recordAndStop(seconds*1000+500, false);
 
-   }
-   
+ }
+ 
 
-   function playSeq (note_list) {
+ function playSeq (note_list) {
 
-    //console.log(note_list); // testing
-    //note_list.forEach(element => console.log(element)); // testing
-   
-    midi_list = note_list.map(x => Tone.Frequency(x, "midi").toNote());
-    last_note = midi_list[midi_list.length - 1];
-    
-    var pattern = new Tone.Sequence(function(time, note){
-    synth.triggerAttackRelease(note, 0.25);
-    //console.log(note);
-   
-    if (note === last_note) {
-    //console.log("finished!");
-    recordAndStop(null, true);
-    }
+  //console.log(note_list); // testing
+  //note_list.forEach(element => console.log(element)); // testing
+ 
+  midi_list = note_list.map(x => Tone.Frequency(x, "midi").toNote());
+  last_note = midi_list[midi_list.length - 1];
+  
+  var pattern = new Tone.Sequence(function(time, note){
+  synth.triggerAttackRelease(note, 0.25);
+  //console.log(note);
+ 
+  if (note === last_note) {
+  //console.log("finished!");
+  recordAndStop(null, true);
+  }
 
-    }, midi_list);
-   
-    
-    pattern.start(0).loop = false;
-    // begin at the beginning
-    Tone.Transport.start();
-   
+  }, midi_list);
+ 
+  
+  pattern.start(0).loop = false;
+  // begin at the beginning
+  Tone.Transport.start();
+ 
 }
    
+
+function toneJSPlay (midi) {
+
+    const now = Tone.now() + 0.1;
+    const synths = [];
+    midi.tracks.forEach(track => {
+        console.log(track['duration']);
+        setTimeout(() => {  recordAndStop(null, true); }, track['duration'] * 1000); // start recording after
+        //create a synth for each track
+        const synth = new Tone.PolySynth(2, Tone.Synth, synth_params).toMaster();
+        synths.push(synth);
+        //schedule all of the events
+        track.notes.forEach(note => {
+        synth.triggerAttackRelease(note.name, note.duration, note.time + now, note.velocity);
+        });
+    })
+
+    }
+    
+async function midiToToneJS (url) {
+
+// load a midi file in the browser
+const midi = await Midi.fromUrl(url).then(midi => {
+
+    console.log(midi);
+
+    toneJSPlay(midi);
+    
+})
+}
 
 
 // Define a function to handle status messages
 
-function playMidiFileAndRecordAfter(url) {
+function playMidiFileAndRecordAfter(url, toneJS) {
+
   
-function display_message(mes) {
-     console.log(mes);
+    // toneJS: boolean. true if file file to be played via toneJS. otherwise, via MIDIJS
+
+    if (toneJS === true) {
+        midiToToneJS(url);
+    }
+
+    else {
+    function display_message(mes) {
+        console.log(mes);
+    }
+
+    MIDIjs.message_callback = display_message; 
+    MIDIjs.player_callback = display_time; 
+
+    console.log(MIDIjs.get_audio_status());
+
+    MIDIjs.play(url);
+
+    // Define a function to handle player events
+    function display_time(ev) {
+
+    console.log(ev.time); // time in seconds, since start of playback
+
+    MIDIjs.get_duration(url,  function(seconds) { console.log("Duration: " + seconds); 
+
+    if (ev.time > seconds) {
+        console.log("file finished!");
+        MIDIjs.player_callback = null;
+        recordAndStop(null, true);
+    } 
+        
+    });
+
+    }
+    }
 }
 
-MIDIjs.message_callback = display_message; 
-MIDIjs.player_callback = display_time; 
 
-console.log(MIDIjs.get_audio_status());
-
-MIDIjs.play(url);
-
-// Define a function to handle player events
-function display_time(ev) {
-
-console.log(ev.time); // time in seconds, since start of playback
-
-
-MIDIjs.get_duration(url,  function(seconds) { console.log("Duration: " + seconds); 
-
-   if (ev.time > seconds) {
-    console.log("file finished!");
-    MIDIjs.player_callback = null;
-    recordAndStop(null, true);
-  } 
-    
-});
-
+function showHiddenButton (e) {
+  e.classList.remove("_hidden");
 }
 
+
+function hideButton (e) {
+  e.classList.add("_hidden");
 }
+
+
+

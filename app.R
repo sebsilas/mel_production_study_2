@@ -31,9 +31,8 @@ non.audio.pages <- list("get_user_info", "microphone_test", "present_files", "qu
 
 # html header
 
-html.head <- shiny::tags$head(shiny::tags$script(
-htmltools::HTML('
-// Create the XHR object.
+html.head <- shiny::tags$head(shiny::tags$script(htmltools::HTML(
+'// Create the XHR object.
 function createCORSRequest(method, url) {
 var xhr = new XMLHttpRequest();
 if ("withCredentials" in xhr) {
@@ -72,16 +71,58 @@ xhr.onerror = function() {
 alert(\'Woops, there was an error making the request.\');
 };
 xhr.send();
+}')),
+shiny::tags$script(htmltools::HTML(
+'// Create the XHR object.
+function createCORSRequest(method, url) {
+var xhr = new XMLHttpRequest();
+if ("withCredentials" in xhr) {
+// XHR for Chrome/Firefox/Opera/Safari.
+xhr.open(method, url, true);
+} else if (typeof XDomainRequest != "undefined") {
+// XDomainRequest for IE.
+xhr = new XDomainRequest();
+xhr.open(method, url);
+} else {
+// CORS not supported.
+xhr = null;
+}
+return xhr;
+}
+// Helper method to parse the title tag from the response.
+function getTitle(text) {
+return text.match(\'<title>(.*)?</title>\')[1];
+}
+// Make the actual CORS request.
+function makeCorsRequest() {
+// This is a sample server that supports CORS.
+var url = \'https://eartrainer.app\';
+var xhr = createCORSRequest(\'GET\', url);
+if (!xhr) {
+alert(\'CORS not supported\');
+return;
+}
+// Response handlers.
+xhr.onload = function() {
+var text = xhr.responseText;
+var title = getTitle(text);
+alert(\'Response from CORS request to \' + url + \': \' + title);
+};
+xhr.onerror = function() {
+alert(\'Woops, there was an error making the request.\');
+};
+xhr.send();
 }
 ')),
-
 shiny::tags$style('._hidden { display: none;}'), # to hide textInputs
 #includeScript("www/js/midi.js"),
 shiny::tags$script(src="https://www.midijs.net/lib/midi.js"),
+shiny::tags$script(src="https://unpkg.com/@tonejs/midi"),
 includeScript("www/js/Tone.js"),
 includeScript("www/js/main.js"),
 includeScript("www/js/speech.js"),
 includeScript("www/js/audiodisplay.js"),
+includeScript("www/js/modernizr-custom.js"),
 shiny::tags$script(htmltools::HTML('initAudio();// get audio context going')
 ))
 
@@ -123,134 +164,179 @@ generate.melody.in.user.range <- function(user_range, rel_melody) {
 
 
 compute.SNR <- function(signal, noise) {
-  SNR <- 20*log10(abs(rms(env(signal))-rms(env(noise)))/rms(env(noise))) 
+  # nice interpretation: https://reviseomatic.org/help/e-misc/Decibels.php
+  signal <- env(signal, f = 44100)
+  noise <- env(noise, f = 44100)
+  SNR <- 20*log10(abs(rms(signal)-rms(noise))/rms(noise))
   return(SNR)
 }
 
 
 
-
-
-### PAGES ###
-
-
-# NOTES
-# reference tutorial: http://www.vesnam.com/Rblog/transcribing-music-from-audio-files-2/
-# consider stereo/mono!! ...
-
-
-SNR.page <- reactive_page(function(state, ...) {
+add.file.info.to.list <- function(file_name, state) {
+  
+  # for testing. keep a list of the file names to present at the end of a test
+  
+  trial.name <-  substr(file_name, 1, nchar(file_name)-4)
+  
+  #print(answer)
+  
+  state_global <- get_global("file_list", state)
+  
+  if (is.null(state_global) == TRUE) {
+    
+    # if a file_list doesn't exist, create one and add the first item to the list
+    
+    #print("it's null")
+    
+    set_global("file_list", list(file_name), state)
+    
+    #print("added item")
+    #print(get_global("file_list", state))
+    
+    
+  } 
+  else {
+    #print("it's not null")
+    # if it does exist, then append the latest response to the list
+    
+    file_list <- get_global("file_list", state)
+    
+    updated.list <- c(file_list, file_name)
+    
+    set_global("file_list", updated.list, state)
+    
+    #print("added item")
+    
+    #print(get_global("file_list", state))
+    
+    
+  }
   
   
-  dis <- as.list(results(state))
+}
+
+get_user_session_dir <- function (state) {
   
+  #local_path <- getwd() # remove eventually
   
-  # first for user background
-  user_background <- dis$results$user_background$audio
+  session_dir <- paste0("output/sessions/",get_session_info(state, complete = FALSE)$p_id,"/")
   
+  #session_dir <- paste0(local_path, "/", session_dir)
+  
+  return (session_dir)
+  
+}
+
+
+
+prepare.then.write.audio <- function(audio_data, file_name, state) {
   
   ## split two channel audio
-  audio_split_user_background <- length(user_background)/2
+  audio_split <- length(audio_data)/2
   
-  user_background1 <- as.numeric(unlist(user_background[1:audio_split_user_background]))
-  user_background2 <- as.numeric(unlist(user_background[(audio_split_user_background+1):length(user_background)]))
+  a1 <- audio_data[1:audio_split]
   
-  
-  # # construct wav object that the API likes
-  userbgWobj <- Wave(user_background1, user_background2, samp.rate = 44100, bit = 16)
-  
-  userbgWobj <- normalize(userbgWobj, unit = "16", pcm = TRUE)
-  
-  userbgWobj <- mono(userbgWobj)
-  
-  
-  #periodogram
-  userbgWspecObject <- tuneR::periodogram(userbgWobj, width = 1024, overlap = 512, fastdisp = TRUE)
-  
-  
-  # same thing for note sing
-  user_hum <- dis$results$user_hum$audio
-  
-  ## split two channel audio
-  audio_split_user_hum <- length(user_hum)/2
-  user_hum1 <- user_hum[1:audio_split_user_hum]
-  user_hum2 <- user_hum[(audio_split_user_hum+1):length(user_hum)]
-  
-  # construct wav object that the API likes
-  user_humWobj <- Wave(user_hum1, user_hum2, samp.rate = 44100, bit = 16)
-  user_humWobj <- normalize(user_humWobj, unit = "16", pcm = TRUE)
-  user_humWobj <- mono(user_humWobj)
-  
-  #periodogram
-  userhumWspecObject <- periodogram(user_humWobj, width = 1024, overlap = 512, fastdisp = TRUE)
-  
-  SNR <- compute.SNR(user_humWobj,userbgWobj)
-  
-  ui <- div(
-    
-    html.head,
-    
-    # start body
-    
-    renderText({paste0("SNR: ",round(SNR,2))}),
-    
-    #renderText({"User Background"}), # optional: plotenergy = FALSE
-    
-    #renderPlot({plot(userbgWspecObject)}, width = 100, height = 50), # optional: plotenergy = FALSE
-    
-    #renderText({"User Hum"}), # optional: plotenergy = FALSE
-    
-    #renderPlot({plot(userhumWspecObject)}, width = 100, height = 50), # optional: plotenergy = FALSE
-    
-    
-    # next page
-    trigger_button("next", "Next")
-    
-    
-  ) # end main div
-  
-  psychTestR::page(ui = ui)
-  
-})
-
-
-calculate.range <- function(answer, ...) {
-  
-  a <- answer$audio
-  
-  ## split two channel audio
-  audio_split <- length(a)/2
-  a1 <- a[1:audio_split]
-  a2 <- a[(audio_split+1):length(a)]
+  a2 <- audio_data[(audio_split+1):length(audio_data)]
   
   # construct wav object that the API likes
   Wobj <- Wave(a1, a2, samp.rate = 44100, bit = 16)
   Wobj <- normalize(Wobj, unit = "16", pcm = TRUE)
   Wobj <- mono(Wobj)
   
+  # writing the file to the www directory
+  
+  wav_www_dir <- paste0("www/trial_audio/",file_name)
+  writeWave(Wobj, wav_www_dir, extensible = FALSE)
+  
+  # session-specific writing
+  session_dir <- get_user_session_dir(state)
+  
+  wav_name_sess_dir <- paste0(session_dir,file_name)
+  
+  
+  writeWave(Wobj, wav_name_sess_dir, extensible = FALSE)
+  
+}
+
+user_info_check <- function(input, ...)  {
+  
+  
+  if (input$browser_capable == "FALSE") {
+    display_error("Sorry, your browser does not have the have requirements to complete the test. Please download the latest version of Google Chrome to complete the experiment.")
+  }
+  
+  else {
+    list(user_info = fromJSON(input$user_info))
+  }
+  
+}
+
+get.answer.grab.audio <- function(input, state, ...) {
+  
+  # audio
+  audio.data <- input$audio
+  
+  # get timecode
+  tc = Sys.time()
+  
+  # create filename for the audio file based on time code
+  trial.filename =  paste0(gsub("[^0-9]","",tc), ".wav")
+  
+  # write audio
+  prepare.then.write.audio(audio.data, trial.filename, state = state)
+  
+  # add filename to global variable store
+  #add.file.info.to.list(trial.filename, state = state)
+  
+  list(trial.id = NULL, # should be page label
+       trial.timecode = tc,
+       trial.filename =  trial.filename
+  )
+  
+}
+
+
+calculate.range <- function(state, ...) {
+  
+  # currently a page for testing purposes, but perhaps just a function later
+  
+  res <- as.list(results(state))
+  
+  # get user session directory
+  session_dir <- get_user_session_dir(state)
+
+  user_singing_calibration_file_name <- res$results$user_singing_calibration$trial.filename
+  user_singing_calibration <- readWave(paste0(session_dir,user_singing_calibration_file_name))
+
   # calculating periodograms of sections each consisting of 1024 observations,
   # overlapping by 512 observations:
-  WspecObject <- periodogram(Wobj, width = 1024, overlap = 512)
+  WspecObject <- periodogram(user_singing_calibration, width = 1024, overlap = 512)
   
   # calculate the fundamental frequency:
-  ff <- tuneR::FF(WspecObject, peakheight=0.015) #tuneR solution: issue, no bandpass try to get below working
+  #ff <- tuneR::FF(WspecObject, peakheight=0.015) #tuneR solution: issue, no bandpass try to get below working
   
-  #ff <- seewave::autoc(WspecObject, f = 44100, fmin = round(lowest_freq), fmax = round(highest_freq), plot = FALSE) # NB, also threshold argument
-  
-  print(ff)
+  #ff <- seewave::autoc(user_singing_calibration, f = 44100, fmin = round(lowest_freq), fmax = round(highest_freq), plot = FALSE, xlab = "Time (s)", ylab = "Frequency (kHz)", ylim = c(0, f/44100), threshold = 2) # NB, also threshold argument
+  df <- seewave::dfreq(user_singing_calibration , clip = 0.1, threshold = 10, wl=87.5, bandpass = c(round(lowest_freq), round(highest_freq)))
+  #print(ff)
   
   # mean ff
-  user.mean.FF <- round(mean(ff, na.rm = TRUE), 2)
-  user.mean.midi <- round(freq_to_midi(user.mean.FF))
+  #user.mean.FF <- round(mean(ff, na.rm = TRUE), 2) * 1000
+  #user.mean.midi <- round(freq_to_midi(user.mean.FF))
   
-  print(user.mean.FF)
-  print(user.mean.midi)
+  # mean df
+  user.mean.DF <- round(mean(df, na.rm = TRUE), 2) * 1000
+  user.mean.DF.midi <- round(freq_to_midi(user.mean.DF))
+  
+  #print(user.mean.FF)
+  #print(user.mean.midi)
   
   
   # define a user range
   
-  user.range <- generate.user.range(user.mean.midi)
+  #user.range <- generate.user.range(user.mean.midi)
   
+  user.range <- generate.user.range(user.mean.DF.midi)
   
   
   ui <- div(
@@ -260,11 +346,17 @@ calculate.range <- function(answer, ...) {
     # start body
     
     
-    renderPlot({plot(ff)}), # optional: plotenergy = FALSE
+    #renderPlot({plot(ff)}), # optional: plotenergy = FALSE for tuneR
     
-    renderText({sprintf("The mean FF was %.2f", user.mean.FF)}), # mean FF
+    renderPlot({plot(df)}), # optional: plotenergy = FALSE
     
-    renderText({sprintf("The mean MIDI note was %i", user.mean.midi)}), # mean midi note
+    #renderText({sprintf("The mean FF was %.2f", user.mean.FF)}), # mean FF
+    
+    #renderText({sprintf("The mean MIDI note was %i", user.mean.midi)}), # mean midi note
+    
+    renderText({sprintf("The mean DF was %.2f", user.mean.DF)}), # mean DF
+    
+    renderText({sprintf("The mean MIDI note was %i", user.mean.DF.midi)}), # mean midi note
     
     
     # next page
@@ -279,98 +371,73 @@ calculate.range <- function(answer, ...) {
 
 
 
-get.answer.grab.audio <- function(input, ...) {
-  tc = Sys.time()
-  list(trial.id = NULL, # should be page label
-       audio = input$audio,
-       trial.timecode = tc,
-       trial.filename =  gsub("[^0-9]","",tc)
-  )
-}
+### PAGES ###
 
 
+# NOTES
+# reference tutorial: http://www.vesnam.com/Rblog/transcribing-music-from-audio-files-2/
+# consider stereo/mono!! ...
 
-add.file.info.to.list <- function(state, answer) {
+
+calculate.SNR.page <- reactive_page(function(state, ...) {
   
-  # for testing. keep a list of the file names to present at the end of a test
+  # currently page for testing but probably just a function 
   
-  trial.filename <- answer$trial.filename
-  trial.name <- answer
+  res <- as.list(results(state))
   
-  print(answer)
+  print(res)
   
-  state_global <- get_global("file_list", state)
-  
-  if (is.null(state_global) == TRUE) {
-    
-    # if a file_list doesn't exist, create one and add the first item to the list
-    
-    print("it's null")
-    
-    set_global("file_list", list(trial.filename), state)
-    
-    print("added item")
-    print(get_global("file_list", state))
-    
-    
-  } 
-  else {
-    print("it's not null")
-    # if it does exist, then append the latest response to the list
-    
-    file_list <- get_global("file_list", state)
-    
-    updated.list <- c(file_list, trial.filename)
-    
-    set_global("file_list", updated.list, state)
-    
-    print("added item")
-    
-    print(get_global("file_list", state))
-    
-    
+  # get user session directory
+  session_dir <- get_user_session_dir(state)
+   
+  user_background_file_name <- res$results$user_background$trial.filename
+  user_hum_file_name <- res$results$user_hum$trial.filename
+
+  # first for user background
+  user_background <- readWave(paste0(session_dir,user_background_file_name))
+  # same thing for note sing
+  user_hum <- readWave(paste0(session_dir,user_hum_file_name))
+   
+  # compute signal-to-noise ratio
+  SNR <- compute.SNR(user_hum,user_background)
+   
+  print(SNR)
+   
+  if (as.numeric(SNR) < 5) {
+    display_error("Sorry, your signal is too noisy. Please try making your environment less noisy and/or your microphone signal better to complete the test.")
   }
   
+  #periodograms
+  userbgWspecObject <- tuneR::periodogram(user_background, width = 1024, overlap = 512, fastdisp = TRUE)
+  userhumWspecObject <- tuneR::periodogram(user_hum, width = 1024, overlap = 512, fastdisp = TRUE)
   
-}
-
-process.audio <- code_block(function(state, answer, ...) {
-  # saves audio from page before
-  # answer is  audio from the previous page, as extracted by get_answer()
+   
+  ui <- div(
+     
+    html.head,
+     
+  # start body
+ 
+    renderText({paste0("SNR: ",round(SNR,2))}),
+    
+     renderText({"User Background"}), # optional: plotenergy = FALSE
+     
+     renderPlot({plot(userbgWspecObject)}, width = 100, height = 50), # optional: plotenergy = FALSE
+     
+     renderText({"User Hum"}), # optional: plotenergy = FALSE
+     
+     renderPlot({plot(userhumWspecObject)}, width = 100, height = 50), # optional: plotenergy = FALSE
+     
+   
+     # next page
+     trigger_button("next", "Next")
+    
+    
+  ) # end main div
   
-  a <- answer$audio
+  psychTestR::page(ui = ui)
   
-  trial.filename <- answer$trial.filename
-  
-  ## split two channel audio
-  audio_split <- length(a)/2
-  
-  a1 <- a[1:audio_split]
-  
-  a2 <- a[(audio_split+1):length(a)]
-  
-  # construct wav object that the API likes
-  Wobj <- Wave(a1, a2, samp.rate = 44100, bit = 16)
-  Wobj <- normalize(Wobj, unit = "16", pcm = TRUE)
-  Wobj <- mono(Wobj)
-  
-  # writing the file to the www directory
-  wav_name <- paste0("www/audio",trial.filename,".wav")
-  writeWave(Wobj, wav_name, extensible = FALSE)
-  wav_name
-  
-  # session-specific writing
-  session_dir <- get_session_info(state, complete = FALSE)$p_id
-  wav_name_sess <- paste0("output/sessions/",session_dir, "/audio",trial.filename,".wav")
-  writeWave(Wobj, wav_name_sess, extensible = FALSE)
-  wav_name_sess
-  
-  # and append the file name to the test session global variable
-  
-  add.file.info.to.list(state, answer)
 })
-
-
 
 
 
@@ -595,8 +662,12 @@ midi_page <- function(stimuli_no,
                       admin_ui = NULL,
                       on_complete = NULL, label=NULL) {
   
-  url <- paste0("/berkowitz_midi_rhythmic/Berkowitz",stimuli_no,".mid")
+  #dir_of_midi <- "/berkowitz_midi_rhythmic/Berkowitz"
   
+  dir_of_midi <- "https://eartrainer.app/melodic-production/stimuli/"
+  
+  url <- paste0(dir_of_midi,"Berkowitz",stimuli_no,".mid")
+
   ui <- div(
     
     html.head,
@@ -605,14 +676,14 @@ midi_page <- function(stimuli_no,
     shiny::tags$p("Press Play to hear a melody. This time try and sing back the melody and the rhythm as best you can. Just do your best on the first go then press stop!"),
     
     shiny::tags$div(id="button_area",
-    shiny::tags$button("Play Melody", id="playButton", onclick=paste0("playMidiFileAndRecordAfter(\"",url,"\")")),
+    shiny::tags$button("Play Melody", id="playButton", onclick=paste0("playMidiFileAndRecordAfter(\"",url,"\",true)")),
     ),
   
   shiny::tags$div(id="loading_area")
   
   )
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete)
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = get.answer.grab.audio)
 }
 
 
@@ -653,7 +724,7 @@ microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, lab
     
   ) # end main div
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE)
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = FALSE)
 }
 
 
@@ -666,59 +737,74 @@ get_user_info_page<- function(admin_ui = NULL, on_complete = NULL, label= NULL) 
     
     # start body
     
+    shiny::tags$p("We care about your privacy, so on this page we need you to let us do two things:"),
+                  br(),
+    shiny::tags$p("1) Please click Allow on the popup message to let us record you for this experiment."),
+    shiny::tags$p("2) Click Give Browser Info to give us information about your browser. We need this to ensure that your setup is okay for this experiment."),
+ 
     div(shiny::tags$input(id = "user_info"), class="_hidden"
     )
     ,
     br(),
-    shiny::tags$button("Get User Info", id="getUserInfoButton", onclick="getUserInfo();"),
+    shiny::tags$button("Give Browser Info", id="getUserInfoButton", onclick="getUserInfo();showHiddenButton(next);hideButton(this);"),
     br(),
-    br(),
-    br(),
-    trigger_button("next", "Next")
+    trigger_button("next", "Next", class="_hidden"),
+    
+    hr(),
+    helpText("Click here to view more information about your privacy"),
+    hr(),
     
     
   ) # end main div
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, ...) fromJSON(input$user_info))
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = user_info_check)
 }
+
+
 
 
 
 present_files_page <- function(state, admin_ui = NULL, on_complete = NULL, label= NULL) {
   
+  # NB this page is only used locally for testing because you can only playback audio files in the /www/ directory. 
+  # In the real test, online, we would only store files in the user session directory
   
   # get list of (all) page titles
   
+  res <- as.list(results(state))$results
+  
   page_titles <- names(as.list(results(state))$results)
   
-  print(page_titles)
-  
+
   # create a list of pages that return audio
   
-  joined_list <- unlist(c(page_titles, non.audio.pages))
+  audio_pages <- c()
   
-  print(joined_list)
-  
-  audio_pages <- joined_list[!(duplicated(joined_list)|duplicated(joined_list, fromLast=TRUE))]   # return only the unique value
-  
-  print(audio_pages)
-  
+  for (t in page_titles) {
+    
+    if (t %in% non.audio.pages) {
+      # do nothing
+    }
+    else {
+      audio_pages <- c(audio_pages, t)
+    }
+    
+  }
+
   # now get list of file names
-  
-  
-  file_list <- get_global("file_list", state)
   
   html.file.list <- list() # instantiate empty string
   
   count <- 1
   count_4 <- 1
   
-  for (f in file_list) {
+  for (page in audio_pages) {
+
+
+    file_name <- eval(parse(text=paste0("res$",page,"$trial.filename")))
+    path <- paste0("trial_audio/",file_name)
     
-    title <- audio_pages[count]
-    path <- paste0("audio",f,".wav")
-    
-    new.title <- tags$p(title)
+    new.title <- tags$p(page)
     
     new.tag <- tags$audio(src = path, type = "audio/wav", autoplay = FALSE, controls = TRUE)
     
@@ -729,6 +815,7 @@ present_files_page <- function(state, admin_ui = NULL, on_complete = NULL, label
     
     count <- count+1
     count_4 <- count_4+4
+    
   }
   
   html.file.list <- tagList(html.file.list)
@@ -756,100 +843,86 @@ present_files_page <- function(state, admin_ui = NULL, on_complete = NULL, label
 # create the timeline
 timeline <- list(
   
-  # one_button_page(
-  #   div(
-  #     p("Welcome to the", tags$strong("Melody Singing Test!")),
-  #     p("Please click below to proceed.")
-  #   ),
-  #   button_text = "I'm Ready"
-  # ),
-  # 
-  # 
-  # NAFC_page(label = "quiet_question",
-  #           prompt = "Are you in a quiet environment?",
-  #           choices = c("Yes", "No"),
-  #           on_complete = function(answer, ...) {
-  #             res <- suppressWarnings(answer)
-  #             if (!is.na(res) && res == "Yes") TRUE
-  #             else display_error("Sorry, you cannot complete the test unless you are in a quiet environment.")
-  #           }),
-  # 
-  # NAFC_page(label = "headphones_question",
-  #           prompt = "To complete this test you must wear headphones. You are not allowed to playback sound through your speakers. Please confirm that you will use headphones.",
-  #           choices = c("Yes, I am using headphones.", "I cannot use headphones."),
-  #           on_complete = function(answer, ...) {
-  #             res <- suppressWarnings(answer)
-  #             if (!is.na(res) && res == "Yes, I am using headphones.") TRUE
-  #             else display_error("Sorry, you cannot complete the test unless you are using headphones.")
-  #           }),
-  # 
-  # 
-  # #volume_calibration_page(url = "test_headphones.mp3", type='mp3', button_text = "I can hear the song, move on."),
-  # 
-  # get_user_info_page(label="get_user_info"),
-  # 
-  # 
-  # #elt_save_results_to_disk(complete = FALSE),
-  # 
-  # code_block(function(state, ...) {
-  #   # seems like this may need to be after some form of results to disk saving
-  #   session_dir <- get_session_info(state, complete = FALSE)$p_id
-  # 
-  #   print(session_dir)
-  # 
-  # }),
-  # 
-  # microphone_calibration_page(label = "microphone_test"),
-  # 
-  # record_background_page(label="user_background"),
-  # 
-  # process.audio,
-  # 
-  # #elt_save_results_to_disk(complete = FALSE),
-  # 
-  # record_5_second_hum_page(label = "user_hum"),
-  # 
-  # process.audio,
-  # 
-  # SNR.page,
-  # 
-  # #elt_save_results_to_disk(complete = FALSE),
-  # 
-  # singing_calibration_page(label = "user_singing_calibration"),
-  # 
-  # process.audio,
-  # 
-  # #elt_save_results_to_disk(complete = FALSE),
-  # 
-  # 
-  # reactive_page(function(answer, ...) {
-  #   calculate.range(answer = answer)
-  # }),
+  one_button_page(
+     div(
+       p("Welcome to the", tags$strong("Melody Singing Test!")),
+       p("Please click below to proceed.")
+     ),
+     button_text = "I'm Ready"
+   ),
+   
+   
+  NAFC_page(label = "quiet_question",
+             prompt = "Are you in a quiet environment?",
+             choices = c("Yes", "No"),
+             on_complete = function(answer, ...) {
+               res <- suppressWarnings(answer)
+               if (!is.na(res) && res == "Yes") TRUE
+               else display_error("Sorry, you cannot complete the test unless you are in a quiet environment.")
+             }),
+   
+  NAFC_page(label = "headphones_question",
+             prompt = "To complete this test you must wear headphones. You are not allowed to playback sound through your speakers. Please confirm that you will use headphones.",
+             choices = c("Yes, I am using headphones.", "I cannot use headphones."),
+             on_complete = function(answer, ...) {
+               res <- suppressWarnings(answer)
+               if (!is.na(res) && res == "Yes, I am using headphones.") TRUE
+               else display_error("Sorry, you cannot complete the test unless you are using headphones.")
+             }),
+   
+   
+  volume_calibration_page(url = "audio/test_headphones.mp3", type='mp3', button_text = "I can hear the song, move on."),
+   
+  get_user_info_page(label="get_user_info"),
+   
+   
+  elt_save_results_to_disk(complete = FALSE),
+   
+   code_block(function(state, ...) {
+     # seems like this may need to be after some form of results to disk saving
+     session_dir <- get_session_info(state, complete = FALSE)$p_id
+   
+     print(session_dir)
+   
+   }),
+ 
+  microphone_calibration_page(label = "microphone_test"),
+   
+  record_background_page(label="user_background"),
+   
+  elt_save_results_to_disk(complete = FALSE),
+  
+  record_5_second_hum_page(label = "user_hum"),
+  
+  calculate.SNR.page,
+  
+  elt_save_results_to_disk(complete = FALSE),
+   
+  singing_calibration_page(label = "user_singing_calibration"),
+   
+  elt_save_results_to_disk(complete = FALSE),
+   
+   
+   reactive_page(function(state, ...) {
+     calculate.range(state = state)
+   }),
   
   play_long_tone_record_audio_page(label="tone_1", user_range_index=1),
-  
-  process.audio,
-  
-  #elt_save_results_to_disk(complete = FALSE),
+
+  elt_save_results_to_disk(complete = FALSE),
   
   play_interval_record_audio_page(label="interval_1", interval=simple_intervals[1]),
   
-  process.audio,
-  
-  #elt_save_results_to_disk(complete = FALSE),
+  elt_save_results_to_disk(complete = FALSE),
   
   
   play_mel_record_audio_page(stimuli_no = 1, note_no = 4, label="melody_1"),
   
-  process.audio,
-  
-  #elt_save_results_to_disk(complete = FALSE),
+  elt_save_results_to_disk(complete = FALSE),
   
   midi_page(stimuli_no = 2, label="rhythm_mel_1"),
   
-  process.audio,
-  
-  #elt_save_results_to_disk(complete = FALSE),
+  elt_save_results_to_disk(complete = FALSE),
   
   reactive_page(function(state, ...) {
     present_files_page(state = state, label = "present_files")
@@ -861,7 +934,7 @@ timeline <- list(
                  button_text = "Next", width = "300px",
                   height = "100px"),
   
-  text_input_page("pilot_2", "Please describe any issues you experienced with the test?", save_answer = TRUE,
+  text_input_page("pilot_2", "Please describe any other issues you experienced with the test.", save_answer = TRUE,
                   button_text = "Next", width = "300px",
                   height = "100px"),
   
