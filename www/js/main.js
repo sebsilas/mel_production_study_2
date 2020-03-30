@@ -396,7 +396,7 @@ function recordAndStop (ms, showStop) {
 
 function toneJSPlay (midi, note_no) {
 
-    const now = Tone.now() + 0.1;
+    const now = Tone.now() + 0.5;
     const synths = [];
     midi.tracks.forEach(track => {
         
@@ -406,14 +406,15 @@ function toneJSPlay (midi, note_no) {
          
         } else {
                 dur = 0;
-               notes_list = track['notes'].slice(1, note_no+1);
+               notes_list = track['notes'].slice(0, note_no);
                notes_list.forEach(el => { 
                    console.log(el['duration']); 
-                   dur = dur+el['duration'] * 1000;
+                   dur = dur+el['duration'];
                    console.log(dur);
                 })
         }
 
+        dur = dur * 1000;
         console.log(dur);
 
         setTimeout(() => {  recordAndStop(null, true); }, dur); 
