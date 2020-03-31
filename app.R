@@ -130,7 +130,12 @@ xhr.send();
   ))
 
 
-
+video.popup.html.1 <- NULL
+  
+  
+  
+  
+video.popup.html.2 <- NULL
 
 # core functions
 
@@ -376,7 +381,7 @@ create.test <- function(data) {
     }
     else {
       page <- paste0(page_type, "(label=\"",page_id,"\", ",other,text,button_text, save_answer,")")
-      print(page)
+      #print(page)
     }
     
     
@@ -637,7 +642,8 @@ record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= N
     body,
     
     shiny::tags$div(id="button_area",
-                    shiny::tags$button(button_text, id="playButton", onclick="recordAndStop(5000, false);")
+                    shiny::tags$button(button_text, id="playButton",
+                                       onclick="recordAndStop(5000, false);")
                     
     ),
     
@@ -939,12 +945,38 @@ get_user_info_page<- function(admin_ui = NULL, on_complete = NULL, label= NULL, 
 }
 
 
+video_page <- function(admin_ui = NULL, on_complete = NULL, label = NULL, src = NULL, body = NULL, button_text = "Next", save_answer = FALSE, video = NULL) {
+  
+  # page for presenting popup videos. TBC later
+  
+  #video_html <- htmltools::HTML(paste0(body,video.popup.html.1,src,video.popup.html.2))
+  
+  print(body)
+  ui <- div(
+    
+    html.head, # end head
+    
+    # start body
+    
+    body,
+    
+    tags$video(src = src, type = "video/mp4", autoplay = FALSE, controls = TRUE, width="600px", height="450px"),
+    
+    br(),
+    
+    trigger_button("next", "Next")
+    
+    
+  ) # end main div
+  
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = FALSE)
+}
+
 
 
 # create the test based on the excel file
   
 test_v1 <- create.test(test_data)
-
 
 
 # run the test

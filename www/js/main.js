@@ -368,7 +368,7 @@ function recordAndStop (ms, showStop) {
  
 
  function playSeq (note_list) {
-
+  
   //console.log(note_list); // testing
   //note_list.forEach(element => console.log(element)); // testing
  
@@ -377,10 +377,10 @@ function recordAndStop (ms, showStop) {
   
   var pattern = new Tone.Sequence(function(time, note){
   synth.triggerAttackRelease(note, 0.25);
-  //console.log(note);
+  console.log(note);
  
   if (note === last_note) {
-  //console.log("finished!");
+  console.log("finished!");
   recordAndStop(null, true);
   }
 
@@ -495,6 +495,3 @@ function showHiddenButton (e) {
 function hideButton (e) {
   e.classList.add("_hidden");
 }
-
-
-
