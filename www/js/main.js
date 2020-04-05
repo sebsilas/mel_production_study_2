@@ -373,13 +373,14 @@ function recordAndStop (ms, showStop) {
   //note_list.forEach(element => console.log(element)); // testing
  
   midi_list = note_list.map(x => Tone.Frequency(x, "midi").toNote());
-  last_note = midi_list[midi_list.length - 1];
-  
+  last_note = midi_list.length;
+  count = 0;
   var pattern = new Tone.Sequence(function(time, note){
   synth.triggerAttackRelease(note, 0.25);
   console.log(note);
+  count=count+1;
  
-  if (note === last_note) {
+  if (count === last_note) {
   console.log("finished!");
   recordAndStop(null, true);
   }

@@ -622,7 +622,7 @@ calculate.SNR.page <- reactive_page(function(state, ...) {
 
 ## main test pages
 
-record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL, save_answer = TRUE, body = NULL, button_text = NULL) {
+record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL, save_answer = TRUE, body = NULL, button_text = "Next") {
   
   # a page type for recording background noise to compute signal-to-noise ratio (SNR)
   
@@ -656,7 +656,7 @@ record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= N
 }
 
 
-record_5_second_hum_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, save_answer = TRUE, button_text = NULL) {
+record_5_second_hum_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, save_answer = TRUE, button_text = "Next") {
   
   # a page type for recording a 5-second user hum to compute signal-to-noise ratio (SNR)
   
@@ -685,7 +685,7 @@ record_5_second_hum_page <- function(admin_ui = NULL, on_complete = NULL, label=
 
 
 
-singing_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, save_answer = TRUE, button_text = NULL) {
+singing_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, save_answer = TRUE, button_text = "Next") {
   
   
   # ask the user to sing a well-known song
@@ -717,7 +717,7 @@ singing_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label=
 
 
 
-play_long_tone_record_audio_page <- function(user_range_index, admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, save_answer = TRUE, button_text = NULL) {
+play_long_tone_record_audio_page <- function(user_range_index, admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, save_answer = TRUE, button_text = "Next") {
   
   # a page type for playing a 5-second tone and recording a user singing with it
   
@@ -760,7 +760,7 @@ play_long_tone_record_audio_page <- function(user_range_index, admin_ui = NULL, 
 
 
 
-play_mel_record_audio_page <- function(stimuli_no, note_no = "max", admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, save_answer = TRUE, button_text = NULL) {
+play_mel_record_audio_page <- function(stimuli_no, note_no = "max", admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, save_answer = TRUE, button_text = "Next") {
   
   # a page type for playing a melody, recording user audio response and saving as a file
   
@@ -801,7 +801,7 @@ play_mel_record_audio_page <- function(stimuli_no, note_no = "max", admin_ui = N
 }
 
 
-play_interval_record_audio_page <- function(interval, admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, save_answer = TRUE, button_text = NULL) {
+play_interval_record_audio_page <- function(interval, admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, save_answer = TRUE, button_text = "Next") {
   
   # a page type for playing a single interval, recording user audio response and saving as a file
   
@@ -830,6 +830,7 @@ play_interval_record_audio_page <- function(interval, admin_ui = NULL, on_comple
     
     shiny::tags$div(id="loading_area")
     
+    
   ) # end main div
   
   psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = get.answer.grab.audio)
@@ -841,7 +842,7 @@ play_interval_record_audio_page <- function(interval, admin_ui = NULL, on_comple
 # create a page type for playing back midi files
 
 midi_page <- function(stimuli_no, note_no = NULL, admin_ui = NULL,
-                      on_complete = NULL, label=NULL, body = NULL, save_answer = TRUE, button_text = NULL) {
+                      on_complete = NULL, label=NULL, body = NULL, save_answer = TRUE, button_text = "Next") {
   
   
   # note_no. optionally limit number of notes
@@ -876,7 +877,7 @@ midi_page <- function(stimuli_no, note_no = NULL, admin_ui = NULL,
 
 
 
-microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, button_text = NULL, save_answer = FALSE) {
+microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, button_text = "Next", save_answer = FALSE) {
   
   # NB, this page needs its own unique head because we don't want to initAudio()
   
@@ -899,7 +900,7 @@ microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, lab
         style = "display:block; margin:1px auto;"),
     
     
-    helpText("Click on the microphone to record."),
+    helpText("Click on the microphone to test"),
     hr(),
     div(id = "viz",
         tags$canvas(id = "analyser"),
@@ -978,7 +979,6 @@ video_page <- function(admin_ui = NULL, on_complete = NULL, label = NULL, src = 
   
 test_v1 <- create.test(test_data)
 
-
 # run the test
 test <- make_test(
   elts = test_v1,
@@ -991,3 +991,4 @@ test <- make_test(
 
 
 #shiny::runApp(".")
+
