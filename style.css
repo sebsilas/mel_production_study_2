@@ -6,6 +6,11 @@ body {
 
 }
 
+ol {
+  text-align: center;
+  list-style: inside;
+}
+
 #button_area button {
 background-color: #ae6060;
 color: #fff;
@@ -50,4 +55,15 @@ html { overflow: hidden; }
 		body { flex-direction: row;}
 		#controls { flex-direction: column; height: 100%; width: 10%;}
 		#viz { height: 100%; width: 90%;}
+	}
+
+
+	video {
+		object-fit: cover;
+	}
+
+	h2 {
+		font-family: Helvetica, Arial, sans-serif;
+		margin: 10px 0 20px 0;
+		font-size: 26px;
 	}

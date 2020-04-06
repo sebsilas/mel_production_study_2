@@ -1,6 +1,6 @@
 console.log("loaded main.js");
 
-const synth_params = {
+const synthParameters = {
     oscillator: {
       type: 'sine',
       partialCount: 4
@@ -12,10 +12,10 @@ const synth_params = {
       release: 0.01,
       attackCurve: 'cosine'
     }
-  }
+  };
 
 //create a synth and connect it to the master output (your speakers)
-const synth = new Tone.Synth(synth_params).toMaster();
+const synth = new Tone.Synth(synthParameters).toMaster();
 
 
 //
@@ -312,13 +312,17 @@ function showLoadingIcon() {
     }
 
 
-function recordUpdateUI(showStop) {
+function recordUpdateUI(showStop, hidePlay) {
 
     // update the recording UI
     // if showStop is true, then give the user the option to press the stop button
+    // if hidePlay is true, then hide the play button
 
-  
+
+    if  (hidePlay === true) {
     hidePlayButton();
+    }
+
     
     if (showStop === true) {
         setTimeout(() => {  showStopButton(); }, 500); // a little lag
@@ -326,24 +330,21 @@ function recordUpdateUI(showStop) {
     }
 
     setTimeout(() => {  showRecordingIcon(); }, 500); // a little lag
-
    
 }
 
 
-function recordAndStop (ms, showStop) {
+function recordAndStop (ms, showStop, hidePlay) {
     // start recording but then stop after x milliseconds
-     
-    console.log("stop!");
 
     startRecording();
 
      if (ms === null) {
-        recordUpdateUI(showStop);
+        recordUpdateUI(showStop, hidePlay);
      }
 
      else {
-        recordUpdateUI(showStop);
+        recordUpdateUI(showStop, hidePlay);
         setTimeout(() => {  stopRecording(); }, ms); 
      }
 
@@ -362,16 +363,24 @@ function recordAndStop (ms, showStop) {
 
   synth.triggerAttackRelease(freq_tone, seconds);
 
-  recordAndStop(seconds*1000+500, false);
+  recordAndStop(seconds*1000+500, false, true);
 
  }
  
 
- function playSeq (note_list) {
+playbackCount = 0; // number of times user presses play in a trial
+
+function updatePlaybackCount() {
+    playbackCount =  playbackCount + 1;
+    Shiny.onInputChange("playbackCount", playbackCount);
+ }
+ 
+ function playSeq (note_list, hidePlay) {
+// hide play. boolean. whether to hide the play button
   
   //console.log(note_list); // testing
   //note_list.forEach(element => console.log(element)); // testing
- 
+updatePlaybackCount();
   midi_list = note_list.map(x => Tone.Frequency(x, "midi").toNote());
   last_note = midi_list.length;
   count = 0;
@@ -382,7 +391,7 @@ function recordAndStop (ms, showStop) {
  
   if (count === last_note) {
   console.log("finished!");
-  recordAndStop(null, true);
+  recordAndStop(null, true, hidePlay);
   }
 
   }, midi_list);
@@ -395,7 +404,7 @@ function recordAndStop (ms, showStop) {
 }
    
 
-function toneJSPlay (midi, note_no) {
+function toneJSPlay (midi, note_no, hidePlay) {
 
     const now = Tone.now() + 0.5;
     const synths = [];
@@ -418,10 +427,10 @@ function toneJSPlay (midi, note_no) {
         dur = dur * 1000;
         console.log(dur);
 
-        setTimeout(() => {  recordAndStop(null, true); }, dur); 
+        setTimeout(() => {  recordAndStop(null, true, hidePlay); }, dur); 
 
         //create a synth for each track
-        const synth = new Tone.PolySynth(2, Tone.Synth, synth_params).toMaster();
+        const synth = new Tone.PolySynth(2, Tone.Synth, synthParameters).toMaster();
         synths.push(synth);
         //schedule all of the events
         notes_list.forEach(note => {
@@ -431,14 +440,14 @@ function toneJSPlay (midi, note_no) {
 
 }
     
-async function midiToToneJS (url, note_no) {
+async function midiToToneJS (url, note_no, hidePlay) {
 
 // load a midi file in the browser
 const midi = await Midi.fromUrl(url).then(midi => {
 
     console.log(midi);
 
-    toneJSPlay(midi, note_no);
+    toneJSPlay(midi, note_no, hidePlay);
     
 })
 }
@@ -446,14 +455,14 @@ const midi = await Midi.fromUrl(url).then(midi => {
 
 // Define a function to handle status messages
 
-function playMidiFileAndRecordAfter(url, toneJS, note_no) {
+function playMidiFileAndRecordAfter(url, toneJS, note_no, hidePlay) {
   
     // toneJS: boolean. true if file file to be played via toneJS. otherwise, via MIDIJS
     // note_no, optional no of notes to cap at 
 
 
     if (toneJS === true) {
-        midiToToneJS(url, note_no);
+        midiToToneJS(url, note_no, hidePlay);
     }
 
     else {
@@ -478,7 +487,7 @@ function playMidiFileAndRecordAfter(url, toneJS, note_no) {
     if (ev.time > seconds) {
         console.log("file finished!");
         MIDIjs.player_callback = null;
-        recordAndStop(null, true);
+        recordAndStop(null, true, true);
     } 
         
     });
