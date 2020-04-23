@@ -175,17 +175,7 @@ rel.to.abs.mel.mean.centred <- function(mean_user_range_note, rel_melody) {
   
 }
 
-# test
-user_mean <- 60 # i.e result of HBD
 
-user_range <- generate.user.range(user_mean)
-
-user_range_sample <- sample(user_range, 1)
-
-rel_melody <- stimuli[[1]][0:4]
-
-rel.to.abs.mel.mean.centred(user_range_sample, rel_melody)
-# end test
 
 compute.SNR <- function(signal, noise) {
   # nice interpretation: https://reviseomatic.org/help/e-misc/Decibels.php
