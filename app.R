@@ -151,14 +151,41 @@ rel.to.abs.mel <- function(start_note, list_of_rel_notes) {
 
 
 
-
 generate.user.range <- function(note) {
   # given a starting note, create a range for the user to present stimuli in
-  range <- c(-5:5) + note
+  range <- c(-3:3) + note
   return(range)
 }
 
 
+
+rel.to.abs.mel.mean.centred <- function(mean_user_range_note, rel_melody) {
+  # produce a melody which is centered on the user's range. 
+  # NB: the "mean stimuli note" could/should be sampled from around the user's mean range i.e +/- 3 semitones
+  
+  mean_of_stimuli <- mean <- round(mean(rel_melody))
+  
+  start_note <- mean_of_stimuli + mean_user_range_note
+  
+  stimuli_centred_to_user_mean <- rel.to.abs.mel(start_note, rel_melody)
+  
+  cat("mean of stimuli", mean_of_stimuli)
+  
+  return(stimuli_centred_to_user_mean)
+  
+}
+
+# test
+user_mean <- 60 # i.e result of HBD
+
+user_range <- generate.user.range(user_mean)
+
+user_range_sample <- sample(user_range, 1)
+
+rel_melody <- stimuli[[1]][0:4]
+
+rel.to.abs.mel.mean.centred(user_range_sample, rel_melody)
+# end test
 
 compute.SNR <- function(signal, noise) {
   # nice interpretation: https://reviseomatic.org/help/e-misc/Decibels.php
@@ -734,7 +761,7 @@ microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, lab
     
     
     img(id = "record",
-        src = "/img/mic128.png",
+        src = "img/mic128.png",
         onclick = "console.log(\"Pushed Record\");console.log(this);initAudio();toggleRecording(this);",
         style = "display:block; margin:1px auto;", width = "100px", height = "100px"),
     
@@ -978,7 +1005,7 @@ play_interval_record_audio_page <- function(label= NULL, body = NULL, on_complet
   
   # a page type for playing a single interval, recording user audio response and saving as a file
  
-  interval <- rel.to.abs.mel(start_note,  simple_intervals[stimuli_no])
+  rel.to.abs.mel.mean.centred(start_note, simple_intervals[stimuli_no])
   
   interval.for.js <- toString(interval)
   
@@ -1069,7 +1096,7 @@ play_melody_from_list_record_audio_page <- function(label= NULL, body = NULL, on
   
   rel_melody <- stimuli[[stimuli_no]][0:note_no]
   
-  melody <- rel.to.abs.mel(start_note, rel_melody)
+  rel.to.abs.mel.mean.centred(start_note, rel_melody)
   
   mel.for.js <- toString(melody)
   
@@ -1120,4 +1147,4 @@ test <- make_test(
 
 
 #shiny::runApp(".")
-
+#rsconnect::deployApp('/Users/sebsilas/mel_production')
