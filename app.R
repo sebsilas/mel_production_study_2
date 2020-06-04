@@ -318,18 +318,18 @@ save.range <- function(answer, state, ...) {
 
 page.builder <- function(page_type, argus) {
   
-  stopifnot(!is.character(page_type))
-  
   # the first argument should be the "function" (page)
-  half.built.page.list <- append(page_type, argus, after = 1)
+  half.built.page.list <- append(get(page_type), argus, after = 1)
   
   new.page.builder.function <- function(state, answer, ...) {
     
     #cat("half built page list", str(half.built.page.list))
     
-    # get the args defined at runtime and add them to argument list
+    # get the args generated at runtime and add them to argument list
     
-    if (any(grepl(deparse(quote(page_type)), user.starting.range.pages))) {
+    print(page_type)
+    
+    if (any(grepl(page_type, user.starting.range.pages))) {
       sampled_mean_note <- get_global("sampled_mean_note", state)
       half.built.page.list$sampled_mean_note <- sampled_mean_note
     }
@@ -519,7 +519,7 @@ create.test <- function(data) {
         # generate the pages
         if (any(grepl(page_type, user.starting.range.pages))) { # this condition finds which pages require a start_note argument
           
-          page.builder.fun <- page.builder(get(page_type), page_pars)
+          page.builder.fun <- page.builder(page_type, page_pars)
           
           page <- random.note.from.user.range(page.builder.fun)
           
@@ -528,9 +528,7 @@ create.test <- function(data) {
         
         else if (any(grepl(page_type, c("record_background_page", "record_5_second_hum_page")))) { # or another page that collects audio, but doesn't need a start note (i.e these pages need a p_id)
           
-          print("it's a record background or 5 second page!")
-          
-          page.builder.fun <- page.builder(get(page_type), page_pars)
+          page.builder.fun <- page.builder(page_type, page_pars)
           
           page <- reactive_page(page.builder.fun) # end reactive page
           
