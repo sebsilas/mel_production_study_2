@@ -3,24 +3,45 @@ console.log("loaded main.js");
 
 /// playback stuff ///
 
-var synthParameters = {
-    oscillator: {
-      type: 'sine',
-      partialCount: 4
-    },
-    envelope: { // http://shura.shu.ac.uk/8259/1/96913_Soranzo_psychoacoustics.pdf
-      attack: 0.01,
-      decay: 0.01,
-      sustain: 0.25,
-      release: 0.01,
-      attackCurve: 'cosine'
-    }
-  };
+function toneJSInit(sound) {
+  
+  // sound: i.e "tone" or "piano"
+  
+  if (sound === "tone") {
+  
+    window.synthParameters = {
+        oscillator: {
+          type: 'sine',
+          partialCount: 4
+        },
+        envelope: { // http://shura.shu.ac.uk/8259/1/96913_Soranzo_psychoacoustics.pdf
+          attack: 0.01,
+          decay: 0.01,
+          sustain: 0.25,
+          release: 0.01,
+          attackCurve: 'cosine'
+        }
+      };
+    
+    //create a synth and connect it to the master output (your speakers)
+    window.synth = new Tone.Synth(synthParameters).toMaster();
+  
+  }
+  
+  else {
+  
+  // create a piano and connect to master output
+  window.piano = SampleLibrary.load({
+    instruments: "piano"
+    });
+    
+  window.piano.toMaster();
+  // piano.triggerAttack("A3");
+  }
+ 
+}
 
-//create a synth and connect it to the master output (your speakers)
-var synth = new Tone.Synth(synthParameters).toMaster();
-
-
+//
 
 function testFeatureCapability() {
 
@@ -46,6 +67,9 @@ function getUserInfo () {
     Shiny.setInputValue("user_info", navigatorJSON);
 }
 
+
+// UI functions //
+
 function hidePlayButton() {
 
 var x = document.getElementById("playButton");
@@ -70,19 +94,23 @@ function hideRecordImage() {
     }
 
 function showStopButton() {
-
+    
+    var br = document.createElement("br");
+    button_area.appendChild(br);
+    
     var stopButton = document.createElement("button");
     stopButton.innerText = "Stop"; // Insert text
     stopButton.addEventListener("click", function () { 
         NewAudio.stopRecording("playButton"); 
         });
     button_area.appendChild(stopButton);
-    var br = document.createElement("br");
-    button_area.appendChild(br);
 
 }
 
 function showRecordingIcon() {
+
+var br = document.createElement("br");
+button_area.appendChild(br);
 
 var img = document.createElement("img"); 
 img.src =  "./img/sing.png"; 
@@ -90,7 +118,6 @@ img.width = "280";
 img.height = "280";
 button_area.appendChild(img);
 
-var br = document.createElement("br");
 button_area.appendChild(br);
 
 }
@@ -113,7 +140,7 @@ function recordUpdateUI(showStop, hidePlay) {
 
 
     if  (hidePlay === true) {
-    hidePlayButton();
+      hidePlayButton();
     }
     
     if (showStop === true) {
@@ -124,10 +151,22 @@ function recordUpdateUI(showStop, hidePlay) {
    
 }
 
+function showHiddenButton (e) {
+  e.classList.remove("_hidden");
+}
 
-function recordAndStop (ms, showStop, hidePlay, id) {
+
+function hideButton (e) {
+  e.classList.add("_hidden");
+}
+
+
+//
+
+
+function recordAndStop (ms, showStop, hidePlay, id, sound) {
     // start recording but then stop after x milliseconds
-
+    
     NewAudio.startRecording(id);
 
      if (ms === null) {
@@ -139,11 +178,30 @@ function recordAndStop (ms, showStop, hidePlay, id) {
         setTimeout(() => {  NewAudio.stopRecording(id); }, ms); 
      }
 
-   }
+}
   
+function triggerNote(sound, freq_tone, seconds) {
+  
+  toneJSInit(sound);
 
+  if (sound === "piano") {
+      // waits for instrument sound files to load from /samples/
+    Tone.Buffer.on('load', function(freq_tone, seconds, time, velocity) {
+       // play instrument sound
+       instruments['piano'].toMaster();
+       console.log(seconds);
+       instruments['piano'].triggerAttack(freq_tone);
+       });
+  }
+  
+  else {
+    console.log(seconds);
+    synth.triggerAttackRelease(freq_tone, seconds);
+  }
 
-function  playTone(tone, seconds, id) {
+}
+
+function  playTone(tone, seconds, id, sound) {
   // play a tone for x seconds
 
   tone = Number(tone);
@@ -151,57 +209,59 @@ function  playTone(tone, seconds, id) {
 
   freq_tone = Tone.Frequency(tone, "midi").toNote();
   console.log(freq_tone);
-
-  synth.triggerAttackRelease(freq_tone, seconds);
-
+  
+  triggerNote(sound, freq_tone, seconds);
+  
   recordAndStop(seconds*1000+500, false, true, id);
 
-  update_playback_count();
+  updatePlaybackCount();
   
   Shiny.setInputValue("stimuli_pitch", tone);
 
 }
  
 
-playback_count = 0; // number of times user presses play in a trial
-
-function update_playback_count() {
-    playback_count =  playback_count + 1;
-    Shiny.setInputValue("playback_count", playback_count);
- }
  
-function playSeq (note_list, hidePlay, id) {
+function playSeq (note_list, hidePlay, id, sound) {
     // hide play. boolean. whether to hide the play button
   
-  //console.log(note_list); // testing
-  //note_list.forEach(element => console.log(element)); // testing
-    update_playback_count();
+  updatePlaybackCount();
+  
+    // hide play button after 3rd playback attempt
+  if (playback_count === 3) {
+    hidePlayButton();
+  }
+
   midi_list = note_list.map(x => Tone.Frequency(x, "midi").toNote());
   last_note = midi_list.length;
   count = 0;
   var pattern = new Tone.Sequence(function(time, note){
-  synth.triggerAttackRelease(note, 0.25);
-  console.log(Tone.Frequency(note).toMidi());
-  count=count+1;
- 
-  if (count === last_note) {
-  console.log("finished!");
-  recordAndStop(null, true, hidePlay, id);
-  }
+  //synth.triggerAttackRelease(note, 0.25);
+
+    triggerNote(sound, note, 0.25);
+
+    count = count + 1;
+  
+    if (count === last_note) {
+      if (playback_count === 1) { recordAndStop(null, true, hidePlay, id); } // only record the first time
+      pattern.stop();
+      Tone.Transport.stop();
+    }
 
   }, midi_list);
- 
   
   pattern.start(0).loop = false;
-  // begin at the beginning
   Tone.Transport.start();
  
   Shiny.setInputValue("stimuli_pitch", note_list);
+  
+
 
 }
    
 
-function toneJSPlay (midi, note_no, hidePlay, transpose, id) {
+function toneJSPlay (midi, note_no, hidePlay, transpose, id, sound) {
+  
     console.log(transpose);
     const now = Tone.now() + 0.5;
     const synths = [];
@@ -236,9 +296,10 @@ function toneJSPlay (midi, note_no, hidePlay, transpose, id) {
           console.log(name);
           transposed_note = Tone.Frequency(name).transpose(transpose);
           console.log("transposed note",transposed_note);
-        synth.triggerAttackRelease(transposed_note, note.duration, note.time + now, note.velocity);
+        //synth.triggerAttackRelease(transposed_note, note.duration, note.time + now, note.velocity);
+        triggerNote(sound, transposed_note, note.duration);
         });
-
+        
         console.log(notes_list);
         
         shiny_notes = [];
@@ -268,14 +329,14 @@ function toneJSPlay (midi, note_no, hidePlay, transpose, id) {
 
 }
     
-async function midiToToneJS (url, note_no, hidePlay, transpose, id) {
+async function midiToToneJS (url, note_no, hidePlay, transpose, id, sound) {
       
 // load a midi file in the browser
 const midi = await Midi.fromUrl(url).then(midi => {
 
     console.log(midi);
     console.log(transpose);
-    toneJSPlay(midi, note_no, hidePlay, transpose, id);
+    toneJSPlay(midi, note_no, hidePlay, transpose, id, sound);
     
 })
 }
@@ -283,15 +344,14 @@ const midi = await Midi.fromUrl(url).then(midi => {
 
 // Define a function to handle status messages
 
-function playMidiFileAndRecordAfter(url, toneJS, note_no, hidePlay, id, transpose) {
+function playMidiFileAndRecordAfter(url, toneJS, note_no, hidePlay, id, transpose, sound) {
     
 
     // toneJS: boolean. true if file file to be played via toneJS. otherwise, via MIDIJS
     // note_no, optional no of notes to cap at 
 
-
     if (toneJS === true) {
-        midiToToneJS(url, note_no, hidePlay, transpose, id);
+        midiToToneJS(url, note_no, hidePlay, transpose, id, sound);
     }
 
     else {
@@ -326,12 +386,10 @@ function playMidiFileAndRecordAfter(url, toneJS, note_no, hidePlay, id, transpos
     
 }
 
+playback_count = 0; // number of times user presses play in a trial
 
-function showHiddenButton (e) {
-  e.classList.remove("_hidden");
-}
-
-
-function hideButton (e) {
-  e.classList.add("_hidden");
-}
+function updatePlaybackCount() {
+    playback_count =  playback_count + 1;
+    console.log(playback_count);
+    Shiny.setInputValue("playback_count", playback_count);
+ }
