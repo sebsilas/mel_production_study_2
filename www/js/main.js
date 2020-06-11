@@ -3,11 +3,11 @@ console.log("loaded main.js");
 
 /// playback stuff ///
 
-function toneJSInit(sound) {
+function toneJSInit() {
   
   // sound: i.e "tone" or "piano"
   
-  if (sound === "tone") {
+  console.log("toneJS Inited!");
   
     window.synthParameters = {
         oscillator: {
@@ -17,7 +17,7 @@ function toneJSInit(sound) {
         envelope: { // http://shura.shu.ac.uk/8259/1/96913_Soranzo_psychoacoustics.pdf
           attack: 0.01,
           decay: 0.01,
-          sustain: 0.25,
+          sustain: 0.50, // this is changed from the parameters above, which was 0.25
           release: 0.01,
           attackCurve: 'cosine'
         }
@@ -26,21 +26,18 @@ function toneJSInit(sound) {
     //create a synth and connect it to the master output (your speakers)
     window.synth = new Tone.Synth(synthParameters).toMaster();
   
-  }
-  
-  else {
-  
+
   // create a piano and connect to master output
   window.piano = SampleLibrary.load({
-    instruments: "piano"
-    });
+    instruments: "piano",
+    minify: true
+   });
     
   window.piano.toMaster();
-  // piano.triggerAttack("A3");
-  }
  
 }
 
+toneJSInit();
 //
 
 function testFeatureCapability() {
@@ -182,19 +179,14 @@ function recordAndStop (ms, showStop, hidePlay, id, sound) {
   
 function triggerNote(sound, freq_tone, seconds) {
   
-  toneJSInit(sound);
-
   if (sound === "piano") {
-      // waits for instrument sound files to load from /samples/
-    Tone.Buffer.on('load', function(freq_tone, seconds, time, velocity) {
-       // play instrument sound
-       instruments['piano'].toMaster();
-       console.log(seconds);
-       instruments['piano'].triggerAttack(freq_tone);
-       });
+  	console.log(freq_tone);
+  	piano.triggerAttackRelease(freq_tone, seconds);
+
   }
   
   else {
+  	console.log("tone");
     console.log(seconds);
     synth.triggerAttackRelease(freq_tone, seconds);
   }
@@ -224,7 +216,7 @@ function  playTone(tone, seconds, id, sound) {
  
 function playSeq (note_list, hidePlay, id, sound) {
     // hide play. boolean. whether to hide the play button
-  
+      
   updatePlaybackCount();
   
     // hide play button after 3rd playback attempt
@@ -236,9 +228,7 @@ function playSeq (note_list, hidePlay, id, sound) {
   last_note = midi_list.length;
   count = 0;
   var pattern = new Tone.Sequence(function(time, note){
-  //synth.triggerAttackRelease(note, 0.25);
-
-    triggerNote(sound, note, 0.25);
+    triggerNote(sound, note, 0.50);
 
     count = count + 1;
   

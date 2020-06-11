@@ -618,7 +618,7 @@ record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= N
     
     shiny::tags$div(id="button_area",
                     shiny::tags$button(button_text, id="playButton",
-                                       onclick="recordAndStop(5000, false, true, this.id, 'tone');")
+                                       onclick="recordAndStop(5000, false, true, this.id, 'piano');")
                     
     ),
     
@@ -650,7 +650,7 @@ record_5_second_hum_page <- function(admin_ui = NULL, on_complete = NULL, label=
     body,
     
     shiny::tags$div(id="button_area",
-                    shiny::tags$button(button_text, id="playButton", onclick="recordAndStop(5000, false, true, this.id, 'tone');")
+                    shiny::tags$button(button_text, id="playButton", onclick="recordAndStop(5000, false, true, this.id, 'piano');")
     ),
     
     shiny::tags$div(id="loading_area"),
@@ -747,7 +747,7 @@ play_long_tone_record_audio_page <- function(label= NULL, body = NULL, on_comple
     body,
     
     shiny::tags$div(id="button_area",
-                    shiny::tags$button(button_text, id="playButton", onclick=sprintf("console.log(this.id);playTone(%s, 5, this.id, 'tone');", tone.for.js))
+                    shiny::tags$button(button_text, id="playButton", onclick=sprintf("console.log(this.id);playTone(%s, 5, this.id, 'piano');", tone.for.js))
     ),
     
     shiny::tags$div(id="loading_area"),
@@ -804,7 +804,7 @@ play_interval_record_audio_page <- function(label= NULL, body = NULL, on_complet
     body,
     
     shiny::tags$div(id="button_area",
-                    shiny::tags$button(button_text, id="playButton", onclick=sprintf("playSeq([%s], true, this.id, 'tone');", interval.for.js))
+                    shiny::tags$button(button_text, id="playButton", onclick=sprintf("playSeq([%s], true, this.id, 'piano');", interval.for.js))
     ),
     
     shiny::tags$div(id="loading_area"),
@@ -867,7 +867,7 @@ play_midi_file_record_audio_page <- function(label= NULL, body = NULL, on_comple
     body,
     
     shiny::tags$div(id="button_area",
-                    shiny::tags$button(button_text, id="playButton", onclick=paste0("playMidiFileAndRecordAfter(\"",url,"\",true, ",note_no,", true, this.id, ",transpose,", 'tone')"))
+                    shiny::tags$button(button_text, id="playButton", onclick=paste0("playMidiFileAndRecordAfter(\"",url,"\",true, ",note_no,", true, this.id, ",transpose,", 'piano')"))
     ),
     
     shiny::tags$div(id="loading_area"),
@@ -925,7 +925,7 @@ play_melody_from_list_record_audio_page <- function(label= NULL, body = NULL, on
     body,
     
     shiny::tags$div(id="button_area",
-                    shiny::tags$button(button_text, id="playButton", onclick=sprintf("playSeq([%s], true, this.id, 'tone');", mel.for.js))
+                    shiny::tags$button(button_text, id="playButton", onclick=sprintf("playSeq([%s], true, this.id, 'piano');", mel.for.js))
     ),
     
     shiny::tags$div(id="loading_area"),
@@ -981,7 +981,7 @@ play_melody_record_audio_page <- function(label= NULL, body = NULL, on_complete 
     body,
     
     shiny::tags$div(id="button_area",
-                    shiny::tags$button(button_text, id="playButton", onclick=sprintf("playSeq([%s], false, this.id, 'tone');", mel.for.js))
+                    shiny::tags$button(button_text, id="playButton", onclick=sprintf("playSeq([%s], false, this.id, 'piano');", mel.for.js))
     ),
     
     shiny::tags$div(id="loading_area"),
