@@ -15,9 +15,19 @@ library(dplyr)
 # constants
 
 simple_intervals <- c(-12:24)
-test.format <- as.data.frame(read_excel("test_formats/arrhythmic_test.xlsx"))
+test.format <- as.data.frame(read_excel("test_formats/arrhythmic_test_140620_mel_first.xlsx"))
 vocal.range.factor <- 2 # i.e the number of semitones to clip each range from
 source("html.R")
+
+soprano <- 60:84
+alto <- 53:77
+tenor <- 48:72
+baritone <- 45:69
+bass <- 40:64
+ranges <- list("Soprano" = soprano, "Alto" = alto, "Tenor" = tenor, "Baritone" = baritone, "Bass" = bass)
+
+
+
 
 # import stimuli
 stimuli.abs <- readRDS("Berkowitz_Absolute.RDS")
@@ -40,6 +50,11 @@ rel.to.abs.mel <- function(start_note, list_of_rel_notes) {
 }
 
 
+get.vocal.range <- function(string_of_range) {
+  
+  return(ranges[[string_of_range]])
+}
+
 
 generate.user.range <- function(note) {
   # given a starting note, create a range for the user to present stimuli in
@@ -58,26 +73,91 @@ get.p.id <- function(state, ...) {
   return(p_id)
 }
 
+tidy.melody.from.corpus <- function(mel) {
+  mel <- as.numeric(unlist(strsplit(mel, ",")))  
+}
 
-rel.to.abs.mel.mean.centred <- function(rel_melody, user_mean_note) {
+
+
+
+mean.of.stimuli <- function(rel_melody) {
+  res <- round(mean(rel.to.abs.mel(0, rel_melody)))
+  res
+}
+
+random.melody.from.corpus <- function() {
+  mel <- tidy.melody.from.corpus(berkowitz.item.bank[sample(1:nrow(berkowitz.item.bank), 1), 1])
+  mel
+}
+
+test.mel <- random.melody.from.corpus()
+rel.to.abs.mel(60, test.mel)  
+
+
+# Libraries
+library(ggplot2)
+library(dplyr)
+
+
+
+
+rel.to.abs.mel.mean.centred <- function(rel_melody, user_mean_note, range = NULL) {
   # produce a melody which is centered on the user's range. 
   # NB: the "mean stimuli note" could/should be sampled from around the user's mean range i.e +/- 3 semitones
   
-  #cat("rel melody: ", str(rel_melody))
+  mean_of_stimuli <- mean.of.stimuli(rel_melody)
   
-  mean_of_stimuli <- round(mean(rel.to.abs.mel(0, rel_melody)))
+  min.range <- range[1]
+  max.range <- range[length(range)]
   
-  #cat("mean of stimuli: ", mean_of_stimuli)
+  user_mean_corrected_to_stimuli <- user_mean_note - mean_of_stimuli
+  stimuli_centred_to_user_mean <- rel.to.abs.mel(user_mean_corrected_to_stimuli, rel_melody)
   
-  start_note <-  user_mean_note - mean_of_stimuli
-    
-  #cat("start note: ", start_note)
   
-  stimuli_centred_to_user_mean <- rel.to.abs.mel(start_note, rel_melody)
+  # the rel melody should be the same when converted back
+  #print(diff(stimuli_centred_to_user_mean))
+  #print(rel_melody)
   
+  
+  # data <- data.frame("x"=1:length(stimuli_centred_to_user_mean), "y"=stimuli_centred_to_user_mean)
+  # 
+  # # Plot
+  # print(plot_gg <- data %>%
+  #   ggplot( aes(x=x, y=y)) +
+  #   geom_line() +
+  #   geom_point() +
+  #   geom_hline(yintercept = user_mean_note, color = "blue") +
+  #   geom_hline(yintercept = user_mean_corrected_to_stimuli, color = "red", linetype="dotted") +
+  #   geom_hline(yintercept = min.range, color = "green") +
+  #   geom_hline(yintercept = max.range, color = "green"))
+  # 
   return(stimuli_centred_to_user_mean)
   
 }
+
+
+
+
+rangeTest <- function() {
+  
+  # get random range
+  vocal_range <- sample(ranges, 1)[[1]]
+  print(vocal_range)
+  # get random melody
+  rel_melody <- random.melody.from.corpus()
+  
+  sampled_mean_note <- mean(vocal_range) + sample(-3:3, 1)
+  
+  centred.mel <- rel.to.abs.mel.mean.centred(rel_melody, sampled_mean_note, vocal_range)
+  print(centred.mel)
+  res <- centred.mel[centred.mel %in% intersect(centred.mel,  vocal_range)] # NB this is necessary because of duplicates
+  print(res)
+  no.present <- length(res)
+  
+  print_res <- paste0(no.present, " out of ", length(centred.mel), " present in range")
+  print(print_res)
+}
+
 
 
 
@@ -126,24 +206,22 @@ user_info_check <- function(input, ...)  {
 }
 
 
-get.timecode <- function(input, state, getRhythms, ...) {
+get.timecode <- function(input, state, getStimuli, getRhythms, ...) {
   
+  # if getStimuliData == TRUE, get stimuli data
   # if getRhythms == TRUE, also get rhythm data
+  
+  page_answer <- list(trial.timecode = input$timecode)
+  
+  if (getStimuli == TRUE) {
+    page_answer$playback.count <- input$playback_count
+    page_answer$stimuli.pitch <- input$stimuli_pitch
+  }
 
   if (getRhythms == TRUE) {
-    page_answer <- list(trial.timecode = input$timecode,
-                        playback.count = input$playback_count,
-                        stimuli.pitch = fromJSON(input$stimuli_pitch),
-                        stimuli.ticks = fromJSON(input$stimuli_ticks),
-                        stimuli.duration = fromJSON(input$stimuli_duration),
-                        stimuli.durationTicks = fromJSON(input$stimuli_durationTicks))
-  }
-  
-  else {
-  
-    page_answer <- list(trial.timecode = input$timecode,
-         playback.count = input$playback_count,
-         stimuli.pitch = input$stimuli_pitch)
+    page_answer$stimuli.ticks <- fromJSON(input$stimuli_ticks)
+    page_answer$stimuli.duration <- fromJSON(input$stimuli_duration)
+    page_answer$stimuli.durationTicks <- fromJSON(input$stimuli_durationTicks)
   }
   
   return(page_answer)
@@ -166,6 +244,11 @@ save.range <- function(answer, state, ...) {
   set_global("user_range",answer,state)
 }
 
+get.range <- function(state, ...) {
+  range <- get_global("user_range",state)
+  range
+}
+
 
 page.builder <- function(page_type, argus) {
   
@@ -186,6 +269,9 @@ page.builder <- function(page_type, argus) {
       else {
         sampled_mean_note <- get_global("sampled_mean_note", state)
         half.built.page.list$sampled_mean_note <- sampled_mean_note
+        
+        user_range <- get.range(state)
+        half.built.page.list$user_range <- user_range
       }
       
     }
@@ -537,7 +623,7 @@ microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, lab
     includeScript("www/js/audio_display.js"),
     includeScript("www/js/speech.js"),
     includeScript("www/js/audio_display.js"),
-
+    
     # start body
     
     
@@ -628,7 +714,7 @@ record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= N
     
   ) # end main div
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, state, ...) { get.timecode(input, state, FALSE) } )
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, state, ...) { get.timecode(input, state, getStimuli = FALSE, getRhythms =  FALSE) } )
   
 }
 
@@ -660,7 +746,7 @@ record_5_second_hum_page <- function(admin_ui = NULL, on_complete = NULL, label=
   ) # end main div
   
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, state, ...) { get.timecode(input, state, FALSE) } )
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, state, ...) { get.timecode(input, state, getStimuli = FALSE, getRhythms =  FALSE) } )
   
 }
 
@@ -747,7 +833,7 @@ play_long_tone_record_audio_page <- function(label= NULL, body = NULL, on_comple
     body,
     
     shiny::tags$div(id="button_area",
-                    shiny::tags$button(button_text, id="playButton", onclick=sprintf("console.log(this.id);playTone(%s, 5, this.id, 'piano');", tone.for.js))
+                    shiny::tags$button(button_text, id="playButton", onclick=sprintf("console.log(this.id);playTone(%s, 5, this.id, 'tone');", tone.for.js))
     ),
     
     shiny::tags$div(id="loading_area"),
@@ -756,7 +842,7 @@ play_long_tone_record_audio_page <- function(label= NULL, body = NULL, on_comple
     
   ) # end main div
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, state, ...) { get.timecode(input, state, FALSE) })
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, state, ...) { get.timecode(input, state, getStimuli = TRUE, getRhythms =  FALSE) })
   
 } 
 
@@ -812,7 +898,7 @@ play_interval_record_audio_page <- function(label= NULL, body = NULL, on_complet
     html.footer2
   ) # end main div
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, state, ...) { get.timecode(input, state, FALSE) })
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, state, ...) { get.timecode(input, state, getStimuli = TRUE, getRhythms =  FALSE) })
   
 }
 
@@ -874,7 +960,7 @@ play_midi_file_record_audio_page <- function(label= NULL, body = NULL, on_comple
     html.footer2
   )
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, state, ...) { get.timecode(input, state, TRUE) })
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, state, ...) { get.timecode(input, state, getStimuli = TRUE, getRhythms =  TRUE) })
 }
 
 
@@ -935,7 +1021,7 @@ play_melody_from_list_record_audio_page <- function(label= NULL, body = NULL, on
     
   ) # end main div
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, state, ...) { get.timecode(input, state, FALSE) })
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, state, ...) { get.timecode(input, state, getStimuli = TRUE, getRhythms =  TRUE) })
   
 }
 
@@ -943,7 +1029,7 @@ play_melody_from_list_record_audio_page <- function(label= NULL, body = NULL, on
 
 play_melody_record_audio_page <- function(label= NULL, body = NULL, on_complete = NULL, admin_ui = NULL, 
                                                     save_answer = TRUE, button_text = "Next", stimuli_corpus = NULL, stimuli_no = NULL, 
-                                                    note_no = "max", interval = NULL, sampled_mean_note = NULL, p_id, rel_melody = NULL, ...) {
+                                                    note_no = "max", interval = NULL, sampled_mean_note = NULL, p_id, rel_melody = NULL, user_range = NULL, ...) {
   
   # The arguments must be in this order: 
   # label= NULL, body = NULL, on_complete = NULL, admin_ui = NULL, 
@@ -952,8 +1038,11 @@ play_melody_record_audio_page <- function(label= NULL, body = NULL, on_complete 
   
   # a page type for playing a melody, recording user audio response and saving as a file
   
-  print(rel_melody)
-  melody <- rel.to.abs.mel.mean.centred(rel_melody, sampled_mean_note)
+  cat("sampled_mean_note in play_melody_record_audio_page", sampled_mean_note)
+ 
+  
+  melody <- rel.to.abs.mel.mean.centred(rel_melody, sampled_mean_note, get.vocal.range(user_range))
+  cat("melody in play_melody_record_audio_page", melody)
   
   mel.for.js <- toString(melody)
   
@@ -991,7 +1080,7 @@ play_melody_record_audio_page <- function(label= NULL, body = NULL, on_complete 
     
   ) # end main div
   
-  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, state, ...) { get.timecode(input, state, FALSE) })
+  psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = function(input, state, ...) { get.timecode(input, state, getStimuli = TRUE, getRhythms =  FALSE) })
   
 }
 

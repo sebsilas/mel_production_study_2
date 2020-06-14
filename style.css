@@ -67,3 +67,7 @@ html { overflow: hidden; }
 		margin: 10px 0 20px 0;
 		font-size: 26px;
 	}
+	
+#playButton {
+  display: block;
+}

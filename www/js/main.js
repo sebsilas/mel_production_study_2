@@ -81,21 +81,19 @@ var x = document.getElementById("playButton");
 
 function hideRecordImage() {
 
-    var x = document.getElementById("button_area");
-         if (x.style.display === "none") {
-     x.style.display = "block";
-     } else {
-     x.style.display = "none";
-     }
+  var x = document.getElementById("button_area");
+       if (x.style.display === "none") {
+   x.style.display = "block";
+   } else {
+   x.style.display = "none";
+   }
     
-    }
+}
 
 function showStopButton() {
-    
-    var br = document.createElement("br");
-    button_area.appendChild(br);
-    
+ 
     var stopButton = document.createElement("button");
+    stopButton.style.display = "block";
     stopButton.innerText = "Stop"; // Insert text
     stopButton.addEventListener("click", function () { 
         NewAudio.stopRecording("playButton"); 
@@ -106,16 +104,13 @@ function showStopButton() {
 
 function showRecordingIcon() {
 
-var br = document.createElement("br");
-button_area.appendChild(br);
-
-var img = document.createElement("img"); 
-img.src =  "./img/sing.png"; 
-img.width = "280";
-img.height = "280";
-button_area.appendChild(img);
-
-button_area.appendChild(br);
+  var img = document.createElement("img"); 
+  img.style.display = "block";
+  
+  img.src =  "./img/sing.png"; 
+  img.width = "280";
+  img.height = "280";
+  button_area.appendChild(img);
 
 }
 
@@ -126,7 +121,7 @@ function showLoadingIcon() {
     img.width = "320";
     img.height = "224";
     loading_area.appendChild(img);
-    }
+}
 
 
 function recordUpdateUI(showStop, hidePlay) {
@@ -179,15 +174,17 @@ function recordAndStop (ms, showStop, hidePlay, id, sound) {
   
 function triggerNote(sound, freq_tone, seconds) {
   
+  //console.log(freq_tone);
+  console.log(Tone.Midi(freq_tone).toMidi());
+
+
   if (sound === "piano") {
-  	console.log(freq_tone);
   	piano.triggerAttackRelease(freq_tone, seconds);
 
   }
   
   else {
   	console.log("tone");
-    console.log(seconds);
     synth.triggerAttackRelease(freq_tone, seconds);
   }
 
@@ -195,6 +192,7 @@ function triggerNote(sound, freq_tone, seconds) {
 
 function  playTone(tone, seconds, id, sound) {
   // play a tone for x seconds
+  rangeTest(tone);
 
   tone = Number(tone);
   console.log(tone);
@@ -216,7 +214,9 @@ function  playTone(tone, seconds, id, sound) {
  
 function playSeq (note_list, hidePlay, id, sound) {
     // hide play. boolean. whether to hide the play button
-      
+  
+  rangeTest(note_list);
+
   updatePlaybackCount();
   
     // hide play button after 3rd playback attempt
@@ -225,11 +225,13 @@ function playSeq (note_list, hidePlay, id, sound) {
   }
 
   midi_list = note_list.map(x => Tone.Frequency(x, "midi").toNote());
+  console.log(midi_list);
   last_note = midi_list.length;
   count = 0;
   var pattern = new Tone.Sequence(function(time, note){
+    console.log(note);
     triggerNote(sound, note, 0.50);
-
+    
     count = count + 1;
   
     if (count === last_note) {
@@ -244,8 +246,6 @@ function playSeq (note_list, hidePlay, id, sound) {
   Tone.Transport.start();
  
   Shiny.setInputValue("stimuli_pitch", note_list);
-  
-
 
 }
    
@@ -383,3 +383,52 @@ function updatePlaybackCount() {
     console.log(playback_count);
     Shiny.setInputValue("playback_count", playback_count);
  }
+
+
+ //
+
+ function range(start, stop, step) {
+  var a = [start], b = start;
+  while (b < stop) {
+      a.push(b += step || 1);
+  }
+  return a;
+}
+
+var soprano = range(60, 84, 1);
+var alto = range(53, 77, 1);
+var tenor = range(48, 72, 1);
+var baritone = range(45, 69, 1);
+var bass = range(40, 64, 1);
+
+function rangeTest(notes_list) {
+
+    if (typeof notes_list == 'number') {
+      notes_list = [notes_list];
+    }
+
+    notes_list.forEach(function(note) {
+
+      if (soprano.includes(note) === true) {
+        console.log("this comes in the soprano range!");
+      }
+
+      if (alto.includes(note) === true) {
+        console.log("this comes in the alto range!");
+      }
+
+      if (tenor.includes(note) === true) {
+        console.log("this comes in the tenor range!");
+      }
+
+      if (baritone.includes(note) === true) {
+        console.log("this comes in the baritone range!");
+      }
+
+      if (bass.includes(note) === true) {
+        console.log("this comes in the bass range!");
+      } 
+
+  });
+
+}
