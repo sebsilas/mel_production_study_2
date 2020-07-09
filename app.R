@@ -11,12 +11,27 @@ library(hrep)
 library(rjson)
 library(readxl)
 library(dplyr)
+library(ggplot2)
+
+## other tests
+library(psychTestRCAT)
+library(mpt)
+library(JAJ)
+library(mdt)
+library(BDS)
+library(piat)
+library(psyquest)
 
 # constants
 
 simple_intervals <- c(-12:24)
-test.format <- as.data.frame(read_excel("test_formats/arrhythmic_test_140620_mel_first.xlsx"))
+test.format <- as.data.frame(read_excel("test_formats/short.xlsx"))
+intro_debrief <- as.data.frame(read_excel("test_formats/intro_debrief.xlsx"))
 vocal.range.factor <- 2 # i.e the number of semitones to clip each range from
+intro.text <- intro_debrief[intro_debrief$label == "information_sheet", ]$text
+debrief.text <- intro_debrief[intro_debrief$label == "debrief", ]$text
+
+
 source("html.R")
 
 soprano <- 60:84
@@ -25,8 +40,6 @@ tenor <- 48:72
 baritone <- 45:69
 bass <- 40:64
 ranges <- list("Soprano" = soprano, "Alto" = alto, "Tenor" = tenor, "Baritone" = baritone, "Bass" = bass)
-
-
 
 
 # import stimuli
@@ -65,7 +78,7 @@ generate.user.range <- function(note) {
 create.p.id <- function(state, ...) {
   p_id <- sprintf("p_%s",paste(base::sample(1:9, 26, replace = TRUE), collapse = ''))
   set_global("p_id", p_id, state)
-  #cat("p_id is", p_id, sep = "\n")
+  cat("p_id is", p_id, sep = "\n")
 }
 
 get.p.id <- function(state, ...) {
@@ -77,9 +90,6 @@ tidy.melody.from.corpus <- function(mel) {
   mel <- as.numeric(unlist(strsplit(mel, ",")))  
 }
 
-
-
-
 mean.of.stimuli <- function(rel_melody) {
   res <- round(mean(rel.to.abs.mel(0, rel_melody)))
   res
@@ -89,16 +99,6 @@ random.melody.from.corpus <- function() {
   mel <- tidy.melody.from.corpus(berkowitz.item.bank[sample(1:nrow(berkowitz.item.bank), 1), 1])
   mel
 }
-
-test.mel <- random.melody.from.corpus()
-rel.to.abs.mel(60, test.mel)  
-
-
-# Libraries
-library(ggplot2)
-library(dplyr)
-
-
 
 
 rel.to.abs.mel.mean.centred <- function(rel_melody, user_mean_note, range = NULL) {
@@ -191,16 +191,24 @@ need.quiet <- function(answer, ...) {
     else display_error("Sorry, you cannot complete the test unless you are in a quiet environment.")
 }
 
+need.consent <- function(answer, ...) {
+  res <- suppressWarnings(answer)
+  if (!is.na(res) && res == "Yes") TRUE
+  else display_error("Sorry, you cannot complete the test unless you give consent to this.")
+}
 
-
-user_info_check <- function(input, ...)  {
+user_info_check <- function(input, state, ...)  {
   
+  # check the info and save it including participant ID
   if (input$browser_capable == "FALSE") {
     display_error("Sorry, your browser does not have the have requirements to complete the test. Please download the latest version of Google Chrome to complete the experiment.")
   }
   
   else {
-    list(user_info = fromJSON(input$user_info))
+    list("user_info" = fromJSON(input$user_info),
+         "p_id" = get.p.id(state),
+         "sound_out_id" = get_global("soundout_id", state)
+         )
   }
   
 }
@@ -216,6 +224,7 @@ get.timecode <- function(input, state, getStimuli, getRhythms, ...) {
   if (getStimuli == TRUE) {
     page_answer$playback.count <- input$playback_count
     page_answer$stimuli.pitch <- input$stimuli_pitch
+    page_answer$playback.times <- input$playback_times
   }
 
   if (getRhythms == TRUE) {
@@ -365,14 +374,13 @@ random.note.from.user.range <- function(pageb, sample_mean_note) {
 item.sampler <- function(item_bank, no_samples) {
   
   no_samples <- as.numeric(no_samples)
-  
   max.N <- max(item_bank$N)
   
   sample <- item_bank[1, ]
   
   count <- 0
   
-  while(nrow(sample)-1 < no_samples) {
+  while(nrow(sample)-2 < no_samples) {
       
     N.subset <- item_bank[item_bank[, "N"] == count, ]
     rand.samp.i <- sample(1:nrow(N.subset), 1, replace = FALSE)
@@ -439,11 +447,42 @@ create.pages <- function(items, page_type, page_pars) {
       ##  
     }
     
-    tl <- append(tl, page, after = length(tl)) # add to timeline. these pages have the results message already appended
+    tl <- append(tl, page, after = length(tl)) 
+    tl <- append(tl, eval(parse(text="elt_save_results_to_disk(complete = FALSE)")), after = length(tl))
     
   } # end for loop
   
   tl
+}
+
+sample.random.stimuli.no <- function(page_type, no_in_corpus, no_to_select, page_pars) {
+  
+  range_of_lengths <- seq(4, 4+no_to_select) # 4 notes minimum
+
+  samp <- sample(1:no_in_corpus, no_to_select)
+  
+  tl <- c()
+  
+  for (i in 1:no_to_select) {
+    
+    page_pars$label <- paste0(page_type,"_", i)
+    page_pars$stimuli_no <- samp[[i]]
+    page_pars$note_no <- range_of_lengths[i]
+    
+    if (i == 1) {
+      page_pars$body <- page_pars$text
+      page_pars$text <- NULL
+    } else { }
+    
+    page.builder.fun <- page.builder(page_type, page_pars)
+    page <- random.note.from.user.range(page.builder.fun, TRUE)
+    tl <- append(tl, page, after = length(tl)) 
+    tl <- append(tl, eval(parse(text="elt_save_results_to_disk(complete = FALSE)")), after = length(tl))
+    
+  } # end for loop
+  
+  tl
+  
 }
 
 
@@ -452,6 +491,7 @@ create.test <- function(test_format, item_bank) {
   
   # main test builder from excel file
   # test_format: excel file specifying test format
+  # with_final: should there be a final page? TRUE if so.
   
   # change NULLS to NAs (better for R to handle)
   test_format <- test_format %>% replace(.=="NULL", NA) # replace with NA
@@ -481,6 +521,24 @@ create.test <- function(test_format, item_bank) {
       tl <- append(tl, page, after = length(tl))
     }
     
+    else if (page_type == "sound_out_p_id") {
+      page.fun <- get("page", asNamespace("psychTestR"))
+      page <- do.call(page.fun, list(on_complete = as.name(page_info$on_complete), 
+                                 ui = div(htmltools::HTML(page_info$text),
+                                          trigger_button("next", page_info$button_text)
+                                          )
+                                 )
+                      )
+      
+      tl <- append(tl, psychTestR::code_block(function(state, ...) {
+        soundout_id <- psychTestR::get_url_params(state)$soundout_id
+        if (!is.null(soundout_id)) {
+          set_global("soundout_id", soundout_id, state)
+        }
+      }) , after = length(tl))
+      tl <- append(tl, page, after = length(tl))
+    }
+    
     else {  # pages that need parameters
       
       page_pars <- page_info
@@ -491,9 +549,17 @@ create.test <- function(test_format, item_bank) {
       # if _GENERATE.ITEMS_ keyword found then generate a bunch of trials according to the page time 
       
       if (page_info$label == "_GENERATE.ITEMS_") {
-        user.sample <- item.sampler(item_bank, page_info$stimuli_no)
-        pages <- create.pages(user.sample, page_type, page_pars)
-        tl <- append(tl, pages, after = length(tl))
+        if (page_type == "play_melody_record_audio_page") {
+          user.sample <- item.sampler(item_bank, page_info$stimuli_no)
+          pages <- create.pages(user.sample, page_type, page_pars)
+          tl <- append(tl, pages, after = length(tl))
+        }
+        else if (page_type == "play_midi_file_record_audio_page") {
+          pages <- sample.random.stimuli.no(page_type, 629, page_info$stimuli_no, page_pars)
+          tl <- append(tl, pages, after = length(tl))
+        }
+        else {}
+        
       } 
       else {
         # i.e manually create each page as per the row in the excel file
@@ -561,7 +627,8 @@ create.test <- function(test_format, item_bank) {
               page <- random.note.from.user.range(page.builder.fun, TRUE)
             }
             
-            tl <- append(tl, page, after = length(tl)) # add to timeline. these pages have the results message already appended
+            tl <- append(tl, page, after = length(tl)) # add to timeline. 
+            tl <- append(tl, eval(parse(text="elt_save_results_to_disk(complete = FALSE)")), after = length(tl)) # AFTER page
           }
           
           else if (any(grepl(page_type, c("record_background_page", "record_5_second_hum_page")))) { # or another page that collects audio, but doesn't need a start note (i.e these pages need a p_id)
@@ -571,6 +638,7 @@ create.test <- function(test_format, item_bank) {
             page <- reactive_page(page.builder.fun) # end reactive page
             
             tl <- append(tl, page, after = length(tl)) # add to timeline. these pages have the results message already appended
+            tl <- append(tl, eval(parse(text="elt_save_results_to_disk(complete = FALSE)")), after = length(tl)) # AFTER page
           }
           
           else {
@@ -605,7 +673,7 @@ create.test <- function(test_format, item_bank) {
     
   } # end main for loop
   
-  tl <- as.list(tl)
+  tl <- psychTestR::module("MST", as.list(tl))
   
   return(tl)
   
@@ -632,15 +700,15 @@ microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, lab
     
     img(id = "record",
         src = "img/mic128.png",
-        onclick = "console.log(\"Pushed Record\");console.log(this);initAudio();toggleRecording(this);",
+        onclick = "toggleRecording(this);initAudio();",
         style = "display:block; margin:1px auto;", width = "100px", height = "100px"),
     
-    
-    helpText("Click on the microphone to test"),
-    hr(),
-    helpText("Make sure your microphone levels are not too high when you speak or sing. Turn your microphone volume down if so."),
-    helpText("If you see that the levels are moving a lot when you are sitting quietly, your room may be too noisy to complete the test."),
-    hr(),
+    # 
+    # helpText("Click on the microphone to test"),
+     hr(),
+    # helpText("Make sure your microphone levels are not too high when you speak or sing. Turn your microphone volume down if so."),
+    # helpText("If you see that the levels are moving a lot when you are sitting quietly, your room may be too noisy to complete the test."),
+    # hr(),
     div(id = "viz",
         tags$canvas(id = "analyser"),
         tags$canvas(id = "wavedisplay")
@@ -655,7 +723,7 @@ microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, lab
 }
 
 
-get_user_info_page<- function(admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, button_text = "Give Browser Info", save_answer = TRUE) {
+get_user_info_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, button_text = "Give Browser Info", save_answer = TRUE) {
   
   
   ui <- div(
@@ -667,16 +735,13 @@ get_user_info_page<- function(admin_ui = NULL, on_complete = NULL, label= NULL, 
     body,
     
     div(shiny::tags$input(id = "user_info"), class="_hidden"
-    )
-    ,
-    br(),
-    shiny::tags$button(button_text, id="getUserInfoButton", onclick="getUserInfo();showHiddenButton(next);hideButton(this);"),
-    br(),
-    trigger_button("next", "Next", class="_hidden"),
+    ),
     
-    hr(),
-    helpText("Click here to view more information about your privacy"),
-    hr()
+    shiny::tags$button(button_text, id="getUserInfoButton", onclick="getUserInfo();testFeatureCapability();next_page();"),
+    #br(),
+    #hr(),
+    #helpText("Click here to view more information about your privacy"),
+    #hr()
     
     
   ) # end main div
@@ -684,10 +749,12 @@ get_user_info_page<- function(admin_ui = NULL, on_complete = NULL, label= NULL, 
   psychTestR::page(ui = ui, admin_ui = admin_ui, on_complete = on_complete, label = label, save_answer = TRUE, get_answer = user_info_check)
 }
 
-record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL, save_answer = TRUE, body = NULL, button_text = "Next", p_id = NULL) {
+
+record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL, save_answer = TRUE, body = NULL, button_text = "Next", p_id) {
   
   # a page type for recording background noise to compute signal-to-noise ratio (SNR)
   
+  print(p_id)
   
   ui <- div(
     
@@ -719,7 +786,7 @@ record_background_page <- function(admin_ui = NULL, on_complete = NULL, label= N
 }
 
 
-record_5_second_hum_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, save_answer = TRUE, button_text = "Next", p_id = NULL) {
+record_5_second_hum_page <- function(admin_ui = NULL, on_complete = NULL, label= NULL, body = NULL, save_answer = TRUE, button_text = "Next", p_id) {
   
   # a page type for recording a 5-second user hum to compute signal-to-noise ratio (SNR)
   
@@ -794,7 +861,7 @@ video_page <- function(admin_ui = NULL, on_complete = NULL, label = NULL, url = 
 
 play_long_tone_record_audio_page <- function(label= NULL, body = NULL, on_complete = NULL, admin_ui = NULL, 
                                              save_answer = TRUE, button_text = "Next", stimuli_corpus = NULL, stimuli_no, 
-                                             note_no = "max", interval = NULL, sampled_note = NULL, p_id = NULL, ...) {
+                                             note_no = "max", interval = NULL, sampled_note = NULL, p_id, ...) {
   
   # a page type for playing a 5-second tone and recording a user singing with it
   
@@ -953,7 +1020,8 @@ play_midi_file_record_audio_page <- function(label= NULL, body = NULL, on_comple
     body,
     
     shiny::tags$div(id="button_area",
-                    shiny::tags$button(button_text, id="playButton", onclick=paste0("playMidiFileAndRecordAfter(\"",url,"\",true, ",note_no,", true, this.id, ",transpose,", 'piano')"))
+          shiny::tags$button(button_text, id="playButton", 
+          onclick=shiny::HTML(paste0("playMidiFileAndRecordAfter(\"",url,"\", true, ",note_no,", true, this.id, ",transpose,", 'piano')")))
     ),
     
     shiny::tags$div(id="loading_area"),
@@ -1085,22 +1153,57 @@ play_melody_record_audio_page <- function(label= NULL, body = NULL, on_complete 
 }
 
 
-
 # create the test based on the excel file
   
-test_v1 <- create.test(test.format, berkowitz.item.bank)
+MST <- create.test(test.format, berkowitz.item.bank)
+
+# constants for all tests
+
+test.password <- "ilikecheesepie432"
+num_items <- 10
 
 
+###
 
-# run the test
+# import PDCT
+source("PDCT/app.R")
+
+### Study 2. Full Battery ###
+
+deploy.battery <- function(password) {
+  
+test <- psychTestR::join(one_button_page(body = htmltools::HTML(intro.text)),
+                           NAFC_page(label = "consent_1", prompt = htmltools::HTML(intro_debrief[intro_debrief$label == "consent_1", ]$text), choices = c("Yes", "No"), on_complete = need.consent),
+                           NAFC_page(label = "consent_2", prompt = htmltools::HTML(intro_debrief[intro_debrief$label == "consent_2", ]$text), choices = c("Yes", "No"), on_complete = need.consent),
+                           NAFC_page(label = "consent_3", prompt = htmltools::HTML(intro_debrief[intro_debrief$label == "consent_3", ]$text), choices = c("Yes", "No"), on_complete = need.consent),
+                           NAFC_page(label = "consent_4", prompt = htmltools::HTML(intro_debrief[intro_debrief$label == "consent_4", ]$text), choices = c("Yes", "No"), on_complete = need.consent),
+                           NAFC_page(label = "consent_5", prompt = htmltools::HTML(intro_debrief[intro_debrief$label == "consent_5", ]$text), choices = c("Yes", "No"), on_complete = need.consent),
+                           one_button_page("In this study you will complete 6 short tests and 1 questionnaire. 
+                                           Please make sure you complete all the tasks before you close your browser!"),
+                           MST,
+                          PDCT(label = "PDCT", num_items = 15L),
+                           piat(label = "PIAT", num_items = 15L),
+                           mdt(label = "MDT", num_items = 11L),
+                           mpt(label = "MPT", num_items = 15L),
+                          JAJ(label = "JAJ", num_items = 8L), 
+                           GMS(admin_password = password, 
+                            subscales = c("Musical Training", "Singing Abilities")),
+                           elt_save_results_to_disk(complete = TRUE), 
+                           one_button_page(body = htmltools::HTML(debrief.text)),
+                           final_page("The End.")
+  )
+}
+
+study.2.battery <- deploy.battery(password = test.password)
+
+# # # run the test
 test <- make_test(
-  elts = test_v1,
-  opt = test_options("Melody Singing", "demo",
+  elts = study.2.battery,
+  opt = test_options("Melody Singing", test.password,
                      display = display_options(
                        css = "style.css")
   )
 )
 
-
 #shiny::runApp(".")
-#rsconnect::deployApp('/Users/sebsilas/mel_production_aws')
+#rsconnect::deployApp('/Users/sebsilas/mel_production_aws_study_2')

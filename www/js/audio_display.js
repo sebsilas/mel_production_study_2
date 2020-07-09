@@ -23,6 +23,7 @@ function convertToMono( input ) {
 }
 
 function toggleRecording( e ) {
+    console.log(e.classList);
     if (e.classList.contains("recording")) {
         // stop recording
         audioRecorder.stop();
@@ -30,11 +31,10 @@ function toggleRecording( e ) {
         e.classList.remove("recording");
     } else {
         // start recording
-
-        if (!audioRecorder)
-            return;
-        audioContext.resume();
         e.classList.add("recording");
+        if (!audioRecorder)
+           return;
+        audioContext.resume();
         audioRecorder.clear();
         audioRecorder.record();
     }
