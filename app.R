@@ -25,7 +25,7 @@ library(psyquest)
 # constants
 
 simple_intervals <- c(-12:24)
-test.format <- as.data.frame(read_excel("test_formats/short.xlsx"))
+test.format <- as.data.frame(read_excel("test_formats/test.xlsx"))
 intro_debrief <- as.data.frame(read_excel("test_formats/intro_debrief.xlsx"))
 vocal.range.factor <- 2 # i.e the number of semitones to clip each range from
 intro.text <- intro_debrief[intro_debrief$label == "information_sheet", ]$text
@@ -558,6 +558,12 @@ create.test <- function(test_format, item_bank) {
           pages <- sample.random.stimuli.no(page_type, 629, page_info$stimuli_no, page_pars)
           tl <- append(tl, pages, after = length(tl))
         }
+        
+        else if (page_type == "play_long_tone_record_audio_page") {
+          user.sample <- item.sampler(item_bank, page_info$stimuli_no)
+          pages <- create.pages(user.sample, page_type, page_pars)
+          tl <- append(tl, pages, after = length(tl))
+        }
         else {}
         
       } 
@@ -690,8 +696,7 @@ microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, lab
     includeScript("www/js/Tone.js"),
     includeScript("www/js/audio_display.js"),
     includeScript("www/js/speech.js"),
-    includeScript("www/js/audio_display.js"),
-    
+
     # start body
     
     
@@ -700,7 +705,7 @@ microphone_calibration_page <- function(admin_ui = NULL, on_complete = NULL, lab
     
     img(id = "record",
         src = "img/mic128.png",
-        onclick = "toggleRecording(this);initAudio();",
+        onclick = "toggleRecording(this);getMedia();",
         style = "display:block; margin:1px auto;", width = "100px", height = "100px"),
     
     # 
